@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+# Project Database Infrastructure
+
+## Setup Instructions
+
+1. Copy `.env.template` to `.env` and fill in the required values
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+## Verification Steps
+
+1. Access Hasura Console:
+   - Open http://localhost:8080/console
+   - Use the HASURA_ADMIN_SECRET from your .env file
+
+## Monitoring
+
+- View logs:
+  ```bash
+  docker-compose logs -f
+  ```
