@@ -5,11 +5,11 @@ export default function Home() {
   const router = useRouter();
 
   const handleLoginClick = () => {
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   const handleRegisterClick = () => {
-    router.push('/register');
+    router.push('/auth/register');
   };
 
   return (
