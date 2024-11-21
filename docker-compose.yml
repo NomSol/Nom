@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hasura-network
+
+  hasura:
+    image: hasura/graphql-engine:latest
+    container_name: hasura
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: "anonymous"
+      HASURA_GRAPHQL_LOG_LEVEL: "debug"
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hasura-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  hasura-network:
+    driver: bridge
