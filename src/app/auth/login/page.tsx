@@ -8,12 +8,6 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold mb-6 text-center">登录账户</h1>
         <LoginForm />
         <div className="mt-4 text-center text-sm text-gray-600">
-          <Link 
-            href="/register"
-            className="text-blue-500 hover:text-blue-600"
-          >
-            没有账号？立即注册
-          </Link>
         </div>
       </div>
     </div>
