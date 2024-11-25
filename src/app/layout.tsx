@@ -9,11 +9,7 @@ export const metadata: Metadata = {
   description: '一个有趣的寻宝游戏平台',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children,} : { children: React.ReactNode}) {
   return (
     <html lang="zh">
       <body className={inter.className}>{children}</body>
