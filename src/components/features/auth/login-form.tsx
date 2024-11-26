@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { signIn } from "next-auth/react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -16,27 +17,51 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   setError('');
+
+  //   try {
+  //     const res = await fetch('/api/auth/login', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify(formData),
+  //     });
+
+  //     const data = await res.json();
+
+  //     if (!res.ok) {
+  //       throw new Error(data.error);
+  //     }
+
+  //     setAuth(data.user, data.token);
+  //     router.push('/dashboard');
+  //   } catch (error: any) {
+  //     setError(error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const result = await signIn("credentials", {
+        redirect: false, // 以便处理自定义结果
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error);
+      if (result?.error) {
+        throw new Error(result.error);
       }
 
-      setAuth(data.user, data.token);
+      // TODO：成功后重定向到主页（暂无），主页加session判断
       router.push('/dashboard');
     } catch (error: any) {
       setError(error.message);
@@ -84,8 +109,8 @@ export function LoginForm() {
         {loading ? '登录中...' : '登录'}
       </Button>
       <div className="text-center text-sm">
-        <a 
-          href="/register" 
+        <a
+          href="/register"
           className="text-blue-500 hover:text-blue-600"
         >
           没有账号？立即注册
