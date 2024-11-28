@@ -4,118 +4,71 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { signIn } from "next-auth/react";
+import { FcGoogle } from 'react-icons/fc';
+import { FaSquareXTwitter } from "react-icons/fa6";
+import { BsTwitter, BsFacebook, BsDiscord } from 'react-icons/bs';
+import { RiWechatFill } from 'react-icons/ri';
+import { IconType } from 'react-icons';
+
+type LoginProvider = 'google' | 'twitter' | 'facebook' | 'discord' | 'wechat';
 
 export function LoginForm() {
   const router = useRouter();
   const setAuth = useAuth(state => state.setAuth);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setLoading(true);
-  //   setError('');
-
-  //   try {
-  //     const res = await fetch('/api/auth/login', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify(formData),
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (!res.ok) {
-  //       throw new Error(data.error);
-  //     }
-
-  //     setAuth(data.user, data.token);
-  //     router.push('/dashboard');
-  //   } catch (error: any) {
-  //     setError(error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (provider: LoginProvider) => {
     setLoading(true);
     setError('');
 
     try {
-      const result = await signIn("credentials", {
-        redirect: false, // 以便处理自定义结果
-        email: formData.email,
-        password: formData.password,
+      const result = await signIn(provider, {
+        redirect: false,
       });
 
       if (result?.error) {
         throw new Error(result.error);
       }
 
-      // TODO：成功后重定向到主页（暂无），主页加session判断
       router.push('/dashboard');
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
   };
 
+  const loginButtons: {
+    provider: LoginProvider;
+    icon: IconType;
+    text: string;
+    color: string;
+  }[] = [
+      { provider: 'google', icon: FcGoogle, text: 'Gmail登录', color: 'bg-white hover:bg-gray-100 text-gray-700' },
+      { provider: 'twitter', icon: FaSquareXTwitter, text: 'Twitter登录', color: 'bg-white hover:bg-gray-100 text-gray-700' },
+      { provider: 'facebook', icon: BsFacebook, text: 'Facebook登录', color: 'bg-[#4267B2] hover:bg-[#365899] text-white' },
+      { provider: 'discord', icon: BsDiscord, text: 'Discord登录', color: 'bg-[#7289DA] hover:bg-[#677bc4] text-white' },
+      { provider: 'wechat', icon: RiWechatFill, text: '微信登录', color: 'bg-[#7BB32E] hover:bg-[#6b9e29] text-white' },
+    ];
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       {error && (
         <div className="text-red-500 text-sm">{error}</div>
       )}
-      <div>
-        <Input
-          type="email"
-          placeholder="邮箱"
-          value={formData.email}
-          onChange={(e) => setFormData({
-            ...formData,
-            email: e.target.value
-          })}
+      {loginButtons.map(({ provider, icon: Icon, text, color }) => (
+        <Button
+          key={provider}
+          onClick={() => handleLogin(provider)}
+          className={`w-full flex items-center justify-center space-x-2 ${color} border border-gray-300`}
           disabled={loading}
-          required
-        />
-      </div>
-      <div>
-        <Input
-          type="password"
-          placeholder="密码"
-          value={formData.password}
-          onChange={(e) => setFormData({
-            ...formData,
-            password: e.target.value
-          })}
-          disabled={loading}
-          required
-        />
-      </div>
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={loading}
-      >
-        {loading ? '登录中...' : '登录'}
-      </Button>
-      <div className="text-center text-sm">
-        <a
-          href="/register"
-          className="text-blue-500 hover:text-blue-600"
         >
-          没有账号？立即注册
-        </a>
-      </div>
-    </form>
+          <Icon className="w-5 h-5" />
+          <span>{text}</span>
+        </Button>
+      ))}
+    </div>
   );
 }
