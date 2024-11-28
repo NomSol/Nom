@@ -1,0 +1,13 @@
+schema:
+  - ${NEXT_PUBLIC_HASURA_ENDPOINT}:
+      headers:
+        x-hasura-admin-secret: ${NEXT_PUBLIC_HASURA_ADMIN_SECRET}
+documents: "src/graphql/**/*.graphql"
+generates:
+  src/graphql/generated/graphql.tsx:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-react-apollo
+    config:
+      withHooks: true
