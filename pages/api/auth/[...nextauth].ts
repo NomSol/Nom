@@ -17,6 +17,7 @@ export default NextAuth({
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error("请提供有效的电子邮件和密码");
                 }
+
                 const res = await fetch("https://yourbackend.com/api/auth/login", {
                     method: "POST",
                     body: JSON.stringify({
@@ -58,12 +59,9 @@ export default NextAuth({
         DiscordProvider({
             clientId: process.env.DISCORD_CLIENT_ID || "",
             clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
-        })
+        }),
 
-        // 你可以添加微信的提供商配置
+        // You can add WeChat provider here if necessary
     ],
     secret: process.env.NEXTAUTH_SECRET,
-    debug: true, // 启用调试
-
-    // 可以添加其他配置选项
 });
