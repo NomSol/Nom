@@ -12,6 +12,7 @@ export interface Treasure {
   latitude: number;
   longitude: number;
   status: string;
+  image_url?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -32,9 +33,9 @@ export interface CreateTreasureInput {
   latitude: number;
   longitude: number;
   status?: string;
+  image_url?: string;
 }
 
-// 将 useTreasure 分离为独立的 hook
 export function useTreasure(id: string) {
   const { data, isLoading } = useQuery({
     queryKey: ['treasure', id],
@@ -75,7 +76,8 @@ export function useTreasures() {
           hint: input.hint,
           latitude: input.latitude,
           longitude: input.longitude,
-          status: 'ACTIVE'
+          status: 'ACTIVE',
+          image_url: input.image_url 
         }
       };
 

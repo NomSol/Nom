@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash } from 'lucide-react';
+import Image from 'next/image';
 
 export interface Treasure {
   id: string;
@@ -11,6 +12,7 @@ export interface Treasure {
   latitude: number;
   longitude: number;
   status: string;
+  image_url?: string;
   created_at: string;
 }
 
@@ -23,6 +25,19 @@ interface TreasureCardProps {
 export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) {
   return (
     <Card className="hover:shadow-lg transition-shadow">
+      {/* 添加图片部分 */}
+      {treasure.image_url && (
+        <div className="relative w-full h-48">
+          <Image
+            src={treasure.image_url}
+            alt={treasure.name}
+            fill
+            className="object-cover rounded-t-lg"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        </div>
+      )}
+      
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg font-bold">{treasure.name}</CardTitle>
         <div className="flex space-x-2">
@@ -48,5 +63,34 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface TreasureListProps {
+  treasures: Treasure[];
+  onEdit?: (treasure: Treasure) => void;
+  onDelete?: (id: string) => void;
+}
+
+export function TreasureList({ treasures, onEdit, onDelete }: TreasureListProps) {
+  if (treasures.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        No treasures found
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {treasures.map((treasure) => (
+        <TreasureCard
+          key={treasure.id}
+          treasure={treasure}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
   );
 }
