@@ -1,33 +1,67 @@
-// app/(main)/treasures/create/page.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { TreasureForm } from '@/components/treasures/treasure_form';
 import { useTreasures } from '@/hooks/use-treasure';
 import { useToast } from '@/components/ui/toaster';
-import { CreateTreasureInput } from '@/hooks/use-treasure';
+import { CreateTreasureInput, Treasure } from '@/hooks/use-treasure';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CreateTreasurePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { createTreasure } = useTreasures();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (data: CreateTreasureInput) => {
     try {
-      console.log('Creating treasure with data:', data); // 添加日志
+      // 创建临时宝藏数据
+      const tempTreasure: Treasure = {
+        id: `temp-${Date.now()}`,
+        ...data,
+        status: 'ACTIVE',
+        created_at: new Date().toISOString(),
+        points: Number(data.points),
+        latitude: Number(data.latitude),
+        longitude: Number(data.longitude),
+      };
+
+      // 立即更新缓存中的宝藏列表
+      queryClient.setQueryData(['treasures'], (old: any) => ({
+        treasures: [...(old?.treasures || []), tempTreasure]
+      }));
+
+      // 显示创建中的提示
+      toast({
+        title: '提示',
+        description: '宝藏创建中...',
+      });
+
+      // 返回列表页面
+      router.back();
+
+      // 执行实际的创建操作
       const result = await createTreasure.mutateAsync({
         ...data,
         status: 'ACTIVE'
       });
-      console.log('Creation result:', result); // 添加日志
-      
+
+      // 创建成功后的提示
       toast({
         title: '成功',
         description: '宝藏创建成功',
       });
-      router.back();
+      
+      // 重新获取最新数据
+      queryClient.invalidateQueries({ queryKey: ['treasures'] });
     } catch (error) {
-      console.error('Error creating treasure:', error); // 添加错误日志
+      console.error('Error creating treasure:', error);
+      
+      // 创建失败时，从缓存中移除临时数据
+      queryClient.setQueryData(['treasures'], (old: any) => ({
+        treasures: old?.treasures.filter((t: Treasure) => !t.id.startsWith('temp-')) || []
+      }));
+
       toast({
         title: '错误',
         description: '创建宝藏失败',
