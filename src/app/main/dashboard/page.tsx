@@ -1,3 +1,4 @@
+// MapPage.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -14,6 +15,7 @@ mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 export default function MapPage() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -29,9 +31,21 @@ export default function MapPage() {
     // Add zoom and rotation controls
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    // Save map instance to ref
+    mapRef.current = map;
+
     // Clean up map instance to prevent memory leaks
     return () => map.remove();
   }, []);
+
+  // Function to fly to a given location
+  const flyToLocation = (lng: number, lat: number) => {
+    mapRef.current?.flyTo({
+      center: [lng, lat],
+      zoom: 12,
+      essential: true, // This animation is considered essential with respect to prefers-reduced-motion
+    });
+  };
 
   return (
     <div className="relative h-screen w-screen">
@@ -41,7 +55,7 @@ export default function MapPage() {
       {/* Sidebar overlay */}
       <div className="absolute top-0 left-0 h-full w-[300px] bg-transparent z-10">
         <SidebarProvider>
-          <AppSidebar />
+          <AppSidebar flyToLocation={flyToLocation} />
           <div>
             <SidebarTrigger />
           </div>
