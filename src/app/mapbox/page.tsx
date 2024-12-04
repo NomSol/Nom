@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css"; // Import Mapbox styles
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/dashboard/sidebar";
+import { AppSidebar } from "@/components/dashboard/app-sidebar";
 
 // Load Access Token from environment variables
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -29,8 +34,19 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div style={{ height: "100vh", width: "100vw" }}>
-      <div ref={mapContainerRef} style={{ height: "100%", width: "100%" }} />
+    <div className="relative h-screen w-screen">
+      {/* Map container */}
+      <div ref={mapContainerRef} className="h-full w-full" />
+
+      {/* Sidebar overlay */}
+      <div className="absolute top-0 left-0 h-full w-[300px] bg-transparent z-10">
+        <SidebarProvider>
+          <AppSidebar />
+          <div>
+            <SidebarTrigger />
+          </div>
+        </SidebarProvider>
+      </div>
     </div>
   );
 }
