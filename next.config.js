@@ -8,6 +8,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'olrroljvdxkccfqdxeis.supabase.co',
+        pathname: '/**',
+      },
+    ],
+  },
 }
 
 module.exports = nextConfig
