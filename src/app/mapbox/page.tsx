@@ -1,44 +1,75 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css"; // Import Mapbox styles
-import {
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/dashboard/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/dashboard/sidebar";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useRef } from "react";
+import { useDeviceOrientation } from "./useDeviceOrientation";
+import { useGeolocation } from "./useGeolocation";
 
-// Load Access Token from environment variables
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 export default function MapPage() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const cleanupRef = useRef<(() => void) | undefined>();
+  const { orientation, startWatching } = useDeviceOrientation();
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Initialize Mapbox map
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current, // Container ID
-      style: "mapbox://styles/mapbox/streets-v11", // Map style
-      center: [149.13, -35.28], // Map center (longitude, latitude)
-      zoom: 10, // Zoom level
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v11",
+      center: [149.13, -35.28],
+      zoom: 10,
     });
 
-    // Add zoom and rotation controls
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    mapRef.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    // Clean up map instance to prevent memory leaks
-    return () => map.remove();
+    return () => mapRef.current?.remove();
   }, []);
+
+  useEffect(() => {
+    if (markerRef.current && orientation !== null) {
+      markerRef.current.setRotation(orientation);
+    }
+  }, [orientation]);
+
+  const { getLocation } = useGeolocation((position) => {
+    const { latitude, longitude } = position.coords;
+
+    if (mapRef.current) {
+      mapRef.current.flyTo({ center: [longitude, latitude], zoom: 15 });
+
+      const markerElement = document.createElement('div');
+      markerElement.innerHTML = `
+                <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="15,0 30,15 15,30 12,30 12,15 0,15 0,12 12,12 12,0" fill="blue" />
+                </svg>
+            `;
+
+      if (markerRef.current) {
+        markerRef.current.remove();
+      }
+
+      markerRef.current = new mapboxgl.Marker(markerElement)
+        .setLngLat([longitude, latitude])
+        .addTo(mapRef.current);
+    }
+  });
+
+  const handleLocationClick = async () => {
+    cleanupRef.current?.();
+    await startWatching();
+    cleanupRef.current = getLocation();
+  };
 
   return (
     <div className="relative h-screen w-screen">
-      {/* Map container */}
       <div ref={mapContainerRef} className="h-full w-full" />
-
-      {/* Sidebar overlay */}
       <div className="absolute top-0 left-0 h-full w-[300px] bg-transparent z-10">
         <SidebarProvider>
           <AppSidebar />
@@ -47,6 +78,19 @@ export default function MapPage() {
           </div>
         </SidebarProvider>
       </div>
+      <button
+        onClick={handleLocationClick}
+        className="absolute bottom-4 right-4 p-2 rounded shadow"
+      >
+        <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="10" fill="none" stroke="black" strokeWidth="2" />
+          <line x1="15" y1="5" x2="15" y2="0" stroke="black" strokeWidth="2" />
+          <line x1="15" y1="25" x2="15" y2="30" stroke="black" strokeWidth="2" />
+          <line x1="5" y1="15" x2="0" y2="15" stroke="black" strokeWidth="2" />
+          <line x1="25" y1="15" x2="30" y2="15" stroke="black" strokeWidth="2" />
+          <circle cx="15" cy="15" r="3" fill="black" />
+        </svg>
+      </button>
     </div>
   );
 }
