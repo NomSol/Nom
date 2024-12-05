@@ -38,6 +38,46 @@ export default function MapPage() {
     }
   }, [orientation]);
 
+  const saveUserLocation = async (latitude: number, longitude: number) => {
+    const userId = 'c410de2d-4d2c-4c9e-b2e3-f0ca3c2d540c'; // 
+    const query = `
+      mutation insertUserLocation($user_id: uuid!, $latitude: float8!, $longitude: float8!) {
+        insert_geolocation_user_location(objects: {
+          user_id: $user_id,
+          latitude: $latitude,
+          longitude: $longitude,
+          region: null,
+          altitude: 0.0
+        }) {
+          returning {
+            id
+          }
+        }
+      }
+    `;
+
+    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_ENDPOINT || '', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          user_id: userId,
+          latitude,
+          longitude,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('save user location error:', errorData);
+    }
+  };
+
   const { getLocation } = useGeolocation((position) => {
     const { latitude, longitude } = position.coords;
 
@@ -59,6 +99,8 @@ export default function MapPage() {
         .setLngLat([longitude, latitude])
         .addTo(mapRef.current);
     }
+
+    saveUserLocation(latitude, longitude);
   });
 
   const handleLocationClick = async () => {
