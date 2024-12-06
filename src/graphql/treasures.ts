@@ -1,3 +1,4 @@
+// graphql/treasures.ts
 import { gql } from 'graphql-request';
 
 export const CREATE_TREASURE = gql`
@@ -11,6 +12,7 @@ export const CREATE_TREASURE = gql`
       latitude
       longitude
       status
+      image_url
       created_at
     }
   }
@@ -24,7 +26,6 @@ export const DELETE_TREASURE = gql`
   }
 `;
 
-
 export const GET_TREASURES = gql`
   query GetTreasures {
     treasures(order_by: { created_at: desc }) {
@@ -36,11 +37,11 @@ export const GET_TREASURES = gql`
       latitude
       longitude
       status
+      image_url
       created_at
     }
   }
 `;
-
 
 export const UPDATE_TREASURE = gql`
   mutation UpdateTreasure($id: uuid!, $set: treasures_set_input!) {
@@ -53,6 +54,7 @@ export const UPDATE_TREASURE = gql`
       latitude
       longitude
       status
+      image_url
       updated_at
     }
   }
@@ -69,6 +71,7 @@ export const GET_TREASURE_BY_ID = gql`
       latitude
       longitude
       status
+      image_url
       created_at
       updated_at
     }
