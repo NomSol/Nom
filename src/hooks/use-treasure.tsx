@@ -1,7 +1,13 @@
 // hooks/use-treasure.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { graphqlClient } from '@/lib/graphql-client';
-import { GET_TREASURES, GET_TREASURE_BY_ID, CREATE_TREASURE, UPDATE_TREASURE, DELETE_TREASURE } from '@/graphql/treasures';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { graphqlClient } from "@/lib/graphql-client";
+import {
+  GET_TREASURES,
+  GET_TREASURE_BY_ID,
+  CREATE_TREASURE,
+  UPDATE_TREASURE,
+  DELETE_TREASURE,
+} from "@/graphql/treasures";
 
 export interface Treasure {
   id: string;
@@ -38,7 +44,7 @@ export interface CreateTreasureInput {
 
 export function useTreasure(id: string) {
   const { data, isLoading } = useQuery({
-    queryKey: ['treasure', id],
+    queryKey: ["treasure", id],
     queryFn: async () => {
       const response = await graphqlClient.request<GetTreasureResponse>(
         GET_TREASURE_BY_ID,
@@ -46,12 +52,12 @@ export function useTreasure(id: string) {
       );
       return response.treasures_by_pk;
     },
-    enabled: !!id
+    enabled: !!id,
   });
 
   return {
     treasure: data,
-    isLoading
+    isLoading,
   };
 }
 
@@ -59,11 +65,13 @@ export function useTreasures() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<GetTreasuresResponse>({
-    queryKey: ['treasures'],
+    queryKey: ["treasures"],
     queryFn: async () => {
-      const response = await graphqlClient.request<GetTreasuresResponse>(GET_TREASURES);
+      const response = await graphqlClient.request<GetTreasuresResponse>(
+        GET_TREASURES
+      );
       return response;
-    }
+    },
   });
 
   const createTreasure = useMutation({
@@ -84,25 +92,29 @@ export function useTreasures() {
       return graphqlClient.request(CREATE_TREASURE, variables);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['treasures'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["treasures"] });
+    },
   });
 
   const updateTreasure = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateTreasureInput> }) =>
-      graphqlClient.request(UPDATE_TREASURE, { id, set: data }),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<CreateTreasureInput>;
+    }) => graphqlClient.request(UPDATE_TREASURE, { id, set: data }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['treasures'] });
-      queryClient.invalidateQueries({ queryKey: ['treasure'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["treasures"] });
+      queryClient.invalidateQueries({ queryKey: ["treasure"] });
+    },
   });
 
   const deleteTreasure = useMutation({
-    mutationFn: (id: string) =>
-      graphqlClient.request(DELETE_TREASURE, { id }),
+    mutationFn: (id: string) => graphqlClient.request(DELETE_TREASURE, { id }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['treasures'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["treasures"] });
+    },
   });
 
   return {
@@ -111,6 +123,6 @@ export function useTreasures() {
     error,
     createTreasure,
     updateTreasure,
-    deleteTreasure
+    deleteTreasure,
   };
 }
