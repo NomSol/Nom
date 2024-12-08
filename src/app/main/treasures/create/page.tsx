@@ -15,7 +15,6 @@ export default function CreateTreasurePage() {
 
   const handleSubmit = async (data: CreateTreasureInput) => {
     try {
-      // 创建临时宝藏数据
       const tempTreasure: Treasure = {
         id: `temp-${Date.now()}`,
         ...data,
@@ -26,10 +25,13 @@ export default function CreateTreasurePage() {
         longitude: Number(data.longitude),
       };
 
-      // 立即更新缓存中的宝藏列表
+      // 立即更新缓存
       queryClient.setQueryData(['treasures'], (old: any) => ({
         treasures: [...(old?.treasures || []), tempTreasure]
       }));
+
+      // 立即返回列表页面
+      router.back();
 
       // 显示创建中的提示
       toast({
@@ -37,11 +39,8 @@ export default function CreateTreasurePage() {
         description: '宝藏创建中...',
       });
 
-      // 返回列表页面
-      router.back();
-
       // 执行实际的创建操作
-      const result = await createTreasure.mutateAsync({
+      await createTreasure.mutateAsync({
         ...data,
         status: 'ACTIVE'
       });
@@ -51,7 +50,7 @@ export default function CreateTreasurePage() {
         title: '成功',
         description: '宝藏创建成功',
       });
-      
+
       // 重新获取最新数据
       queryClient.invalidateQueries({ queryKey: ['treasures'] });
     } catch (error) {
