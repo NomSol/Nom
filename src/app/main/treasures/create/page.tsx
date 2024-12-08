@@ -30,9 +30,6 @@ export default function CreateTreasurePage() {
         treasures: [...(old?.treasures || []), tempTreasure]
       }));
 
-      // 立即返回列表页面
-      router.back();
-
       // 显示创建中的提示
       toast({
         title: '提示',
@@ -40,7 +37,7 @@ export default function CreateTreasurePage() {
       });
 
       // 执行实际的创建操作
-      await createTreasure.mutateAsync({
+      const result = await createTreasure.mutateAsync({
         ...data,
         status: 'ACTIVE'
       });
