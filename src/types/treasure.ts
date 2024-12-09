@@ -10,6 +10,8 @@ export interface Treasure {
   image_url?: string;
   created_at: string;
   updated_at?: string;
+  ipfs_hash?: string;
+  ipfs_metadata_hash?: string;
 }
 
 export interface CreateTreasureInput {
@@ -21,4 +23,6 @@ export interface CreateTreasureInput {
   longitude: number;
   status?: string;
   image_url?: string;
+  ipfs_hash?: string;
+  ipfs_metadata_hash?: string; 
 }
