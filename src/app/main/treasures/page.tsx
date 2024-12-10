@@ -35,13 +35,13 @@ export default function TreasuresPage() {
   const handleDelete = async (id: string) => {
     try {
       // 立即更新本地状态
-      setLocalTreasures((current) => 
+      setLocalTreasures((current) =>
         current?.filter(treasure => treasure.id !== id) || []
       );
 
       // 执行实际的删除操作
       await deleteTreasure.mutateAsync(id);
-      
+
       toast({
         title: 'Success',
         description: 'Treasure deleted successfully',
@@ -49,7 +49,7 @@ export default function TreasuresPage() {
     } catch (error) {
       // 如果删除失败，恢复本地状态
       setLocalTreasures(treasures || []);
-      
+
       toast({
         title: 'Error',
         description: 'Failed to delete treasure',
