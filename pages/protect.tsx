@@ -13,13 +13,10 @@ export function ProtectPage({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (status === 'loading' || session === undefined) return;
 
-        console.log("pathname   1111111111111111111111111", pathname);
-
         // 如果是未保护的路径，直接跳过
         if (unprotectedPaths.includes(pathname)) {
             // 已经登录了
             if (status === 'authenticated' && session) {
-                console.log("pathname   2222222222222222222222222222", pathname);
                 redirect("/main/dashboard");
             }
 
@@ -30,9 +27,6 @@ export function ProtectPage({ children }: { children: React.ReactNode }) {
 
         //在当前非过滤的目录下，如果未登录不需要跳转
         if (status === "unauthenticated" || !session) {
-            console.log("pathname   333333333333333333333333333", pathname);
-            console.log("status   333333333333333333333333333   " + status);
-            console.log("session   333333333333333333333333333   " + session);
             redirect("/auth/login");
         } else {
             setIsReady(true); // 如果用户已通过验证，设置为已准备好渲染
