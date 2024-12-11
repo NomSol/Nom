@@ -41,12 +41,18 @@ export default NextAuth({
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || "",
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+            authorization: {
+                params: {
+                    prompt: "login"
+                }
+            }
         }),
 
         // Twitter Provider
         TwitterProvider({
             clientId: process.env.TWITTER_CLIENT_ID || "",
             clientSecret: process.env.TWITTER_CLIENT_SECRET || "",
+            version: '2.0',
         }),
 
         // Facebook Provider
@@ -59,6 +65,11 @@ export default NextAuth({
         DiscordProvider({
             clientId: process.env.DISCORD_CLIENT_ID || "",
             clientSecret: process.env.DISCORD_CLIENT_SECRET || "",
+            authorization: {
+                params: {
+                    scope: 'identify email', // 请求权限：获取用户的基本信息和电子邮件
+                }
+            }
         }),
 
         // You can add WeChat provider here if necessary
