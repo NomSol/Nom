@@ -1,4 +1,6 @@
 "use client";
+import { useSession } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 
 import { ChevronDown, Building, User } from "lucide-react";
 import {
@@ -30,6 +32,9 @@ const items = [
 ];
 
 export function AppSidebar() {
+
+  const { data: session, status } = useSession();
+
   return (
     <>
       <Sidebar>
@@ -97,15 +102,21 @@ export function AppSidebar() {
         {/* 底部下拉菜单 */}
         <SidebarFooter>
           <div className="flex items-center gap-2 p-4">
-            <User className="w-6 h-6" />
+            {session?.user?.image ? (
+              <img src={session.user.image} alt="User" className="w-6 h-6 rounded-full" />
+            ) : (
+              <User className="w-6 h-6" />
+            )}
             <div className="flex-1">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton className="flex justify-between items-center w-full">
                     <div className="flex flex-col text-left">
-                      <span className="text-sm font-medium">shadcn</span>
+                      <span className="text-sm font-medium">
+                        {session?.user?.name || "user"}
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        m@example.com
+                        {session?.user?.email || ""}
                       </span>
                     </div>
                     <ChevronDown className="ml-2" />
@@ -126,7 +137,7 @@ export function AppSidebar() {
                     <span>Notifications</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => signOut()}>
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

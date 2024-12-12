@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/toaster';
 
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
@@ -16,6 +17,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+
+
+
   return (
     <html lang="zh">
       <body className={inter.className}>
@@ -24,6 +28,6 @@ export default function RootLayout({
           <Toaster />
         </Providers>
       </body>
-    </html>
+    </html >
   )
 }
