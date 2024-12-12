@@ -36,3 +36,6 @@ package-lock.json
 next-env.d.ts
 
 postgres_data/
+
+#idea
+.idea/
