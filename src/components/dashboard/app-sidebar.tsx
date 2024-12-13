@@ -143,30 +143,30 @@
 // }
 
 "use client";
-import { useSession } from 'next-auth/react';
-import { signOut } from 'next-auth/react';
 
-import { ChevronDown, Building, User, Link } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dashboard/dropdown-menu";
 import {
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/dashboard/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/dashboard/dropdown-menu";
+import { Building, ChevronDown, User } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { AISidebarDialog } from "./ai-dialog";
 import { SearchCity } from "./searchcity";
 import { TreasureListDropdown } from "./TreasureListDropdown";
 
@@ -224,7 +224,9 @@ export function AppSidebar() {
           {/* 搜索城市组件 */}
           <SearchCity />
 
-          {/* 菜单组 */}
+          <AISidebarDialog />
+
+          {/* 现有菜单项 */}
           <SidebarGroup>
             <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarGroupContent>
