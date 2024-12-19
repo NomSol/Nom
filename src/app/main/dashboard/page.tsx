@@ -1,15 +1,21 @@
 // pages/map.tsx
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
-import { SidebarProvider } from "@/components/dashboard/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { MapContext } from "@/components/dashboard/MapContext";
-import { Treasure } from "@/types/treasure";
+import { SidebarProvider } from "@/components/dashboard/sidebar";
 import { TreasureMarkers } from "@/components/dashboard/TreasureMarkers";
 import { useTreasures } from "@/hooks/use-treasure"; // 从你的hooks中导入useTreasures
+import { initializeServices } from '@/services/init';
+import { Treasure } from "@/types/treasure";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useRef, useState } from "react";
+
+// Initialize services when running on server side
+if (typeof window === 'undefined') {
+  initializeServices();
+}
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
