@@ -1,23 +1,12 @@
-export interface User {
+// src/types/user.ts
+export interface UserProfile {
   id: string;
-  email: string;
-  name: string;
-  points: number;
-  createdAt: string;
-}
-
-export interface CreateUserInput {
-  email: string;
-  password: string;
-  name: string;
-}
-
-export interface UpdateUserInput {
-  name?: string;
-  points?: number;
-}
-
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
+  nickname: string;
+  avatar_url: string;
+  cath_id: string;
+  ip_location?: string;
+  description?: string;
+  email?: string;
+  created_at: string;
+  updated_at: string;
 }

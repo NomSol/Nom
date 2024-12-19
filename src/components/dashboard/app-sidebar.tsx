@@ -1,4 +1,4 @@
-// "use client";
+"use client";
 
 // import { ChevronDown, Building, User } from "lucide-react";
 // import {
@@ -146,7 +146,7 @@
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 
-import { ChevronDown, Building, User } from "lucide-react";
+import { ChevronDown, Building, User, Link } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -171,7 +171,7 @@ import { SearchCity } from "./searchcity";
 import { TreasureListDropdown } from "./TreasureListDropdown";
 
 const items = [
-  { title: "Home", url: "#", icon: null },
+  { title: "Home", url: "/dashboard", icon: null },
   { title: "Inbox", url: "#", icon: null },
 ];
 
