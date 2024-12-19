@@ -1,5 +1,5 @@
 import { useAuth } from '@/hooks/use-auth';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface GeolocationState {
     latitude: number | null;
@@ -26,8 +26,18 @@ interface LocationHistoryEntry {
     };
 }
 
-export const useGeolocation = () => {
+interface GeolocationOptions {
+    enableTracking?: boolean;
+    trackingInterval?: number; // in milliseconds
+    onPositionUpdate?: (position: GeolocationPosition) => void;
+}
+
+export const useGeolocation = (
+    onPositionUpdate?: (position: any) => void,
+    options: GeolocationOptions = {}
+) => {
     const { user } = useAuth();
+    const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const [state, setState] = useState<GeolocationState>({
         latitude: null,
         longitude: null,
@@ -37,6 +47,11 @@ export const useGeolocation = () => {
         error: null,
         loading: true,
     });
+
+    const {
+        enableTracking = false,
+        trackingInterval = 60000, // Default to 1 minute
+    } = options;
 
     const saveLocationToHistory = async (position: GeolocationPosition) => {
         if (!user?.id) return;
@@ -71,7 +86,22 @@ export const useGeolocation = () => {
         }
     };
 
-    const getLocation = () => {
+    const handlePositionUpdate = async (position: GeolocationPosition) => {
+        setState({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            speed: position.coords.speed,
+            heading: position.coords.heading,
+            error: null,
+            loading: false,
+        });
+
+        await saveLocationToHistory(position);
+        onPositionUpdate?.(position);
+    };
+
+    const getLocation = useCallback(() => {
         if (!navigator.geolocation) {
             setState(prev => ({
                 ...prev,
@@ -84,20 +114,7 @@ export const useGeolocation = () => {
         setState(prev => ({ ...prev, loading: true }));
 
         navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                setState({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                    speed: position.coords.speed,
-                    heading: position.coords.heading,
-                    error: null,
-                    loading: false,
-                });
-
-                // Save location to history
-                await saveLocationToHistory(position);
-            },
+            handlePositionUpdate,
             (error) => {
                 setState({
                     latitude: null,
@@ -115,7 +132,24 @@ export const useGeolocation = () => {
                 maximumAge: 0,
             }
         );
-    };
+    }, []);
+
+    // Set up tracking if enabled
+    useEffect(() => {
+        if (!enableTracking) return;
+
+        // Request initial permission and start tracking
+        getLocation();
+
+        // Set up interval for tracking
+        trackingIntervalRef.current = setInterval(getLocation, trackingInterval);
+
+        return () => {
+            if (trackingIntervalRef.current) {
+                clearInterval(trackingIntervalRef.current);
+            }
+        };
+    }, [enableTracking, trackingInterval, getLocation]);
 
     return {
         ...state,
