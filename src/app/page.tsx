@@ -1,5 +1,9 @@
 "use client";
+import { initializeServices } from '@/services/init';
 import { useRouter } from 'next/navigation';
+
+// Initialize services when running on server side
+initializeServices();
 
 export default function Home() {
   const router = useRouter();

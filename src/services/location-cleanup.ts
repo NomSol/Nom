@@ -1,11 +1,10 @@
 import { graphqlClient } from '@/lib/graphql-client';
 
 export class LocationCleanupService {
-    private static readonly RETENTION_HOURS = 2;
-    private static readonly MIN_RECORDS_PER_HOUR = 1;
-    private static readonly MAX_SPEED_KMH = 3000; // Maximum speed in km/h
+    private static readonly RETENTION_HOURS = 24; // Increased to 24 hours
+    private static readonly MAX_SPEED_KMH = 1000; // Maximum speed in km/h
+    private static readonly MIN_TIME_DIFF_MINUTES = 0.1; // 6 seconds minimum
 
-    // Helper function to calculate distance between two points using Haversine formula
     private static calculateDistance(
         lat1: number,
         lon1: number,
@@ -22,140 +21,157 @@ export class LocationCleanupService {
             Math.sin(dLon / 2) *
             Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in km
+        return R * c;
     }
 
     private static toRad(degrees: number): number {
         return degrees * (Math.PI / 180);
     }
 
-    // Validate location movement speed
-    private static async validateLocationSpeed(userId: string, latitude: number, longitude: number, timestamp: string): Promise<boolean> {
-        try {
-            // Get user's last location
-            const lastLocationQuery = `
-                query GetLastLocation($userId: uuid!) {
-                    geolocation_user_location(
-                        where: { user_id: { _eq: $userId } }
-                        order_by: { created_at: desc }
-                        limit: 1
-                    ) {
-                        latitude
-                        longitude
-                        created_at
-                    }
-                }
-            `;
+    private static formatTimestamp(date: Date): string {
+        return date.toISOString();
+    }
 
-            const lastLocationData = await graphqlClient.request<{
+    static async cleanupLocationHistory() {
+        console.info("Starting location history cleanup and validation.");
+        const cutoffTime = this.formatTimestamp(new Date(Date.now() - this.RETENTION_HOURS * 60 * 60 * 1000));
+
+        try {
+            // Get all locations within retention period
+            const getLocationsQuery = `
+            query GetLocations($cutoffTime: timestamp!) {
+                geolocation_user_location(
+                    where: {
+                        created_at: { _gte: $cutoffTime }
+                    },
+                    order_by: [
+                        { user_id: asc },
+                        { created_at: asc }
+                    ]
+                ) {
+                    id
+                    user_id
+                    latitude
+                    longitude
+                    created_at
+                }
+            }`;
+
+            const locationsData = await graphqlClient.request<{
                 geolocation_user_location: Array<{
+                    id: string;
+                    user_id: string;
                     latitude: number;
                     longitude: number;
                     created_at: string;
                 }>;
-            }>(lastLocationQuery, { userId });
-
-            if (lastLocationData.geolocation_user_location.length === 0) {
-                return true; // First location is always valid
-            }
-
-            const lastLocation = lastLocationData.geolocation_user_location[0];
-            const timeDiffHours = (new Date(timestamp).getTime() - new Date(lastLocation.created_at).getTime()) / (1000 * 60 * 60);
-
-            // Calculate distance in kilometers
-            const distance = this.calculateDistance(
-                lastLocation.latitude,
-                lastLocation.longitude,
-                latitude,
-                longitude
-            );
-
-            // Calculate speed in km/h
-            const speed = distance / timeDiffHours;
-
-            if (speed > this.MAX_SPEED_KMH) {
-                console.warn(
-                    `Suspicious location detected for user ${userId}:`,
-                    `\nSpeed: ${speed.toFixed(2)} km/h`,
-                    `\nDistance: ${distance.toFixed(2)} km`,
-                    `\nTime difference: ${(timeDiffHours * 60).toFixed(2)} minutes`
-                );
-                return false;
-            }
-
-            return true;
-        } catch (error) {
-            console.error('Error validating location speed:', error);
-            return true; // Allow location in case of validation error
-        }
-    }
-
-    static async cleanupLocationHistory() {
-        const twoHoursAgo = new Date();
-        twoHoursAgo.setHours(twoHoursAgo.getHours() - this.RETENTION_HOURS);
-
-        const oneHourAgo = new Date();
-        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-
-        try {
-            // First identify records to keep (last record per hour per user)
-            const keepRecordsQuery = `
-            query GetRecordsToKeep($startTime: timestamptz!, $endTime: timestamptz!) {
-            geolocation_user_location(
-                where: {
-                created_at: { _gte: $startTime, _lt: $endTime }
-                },
-                distinct_on: [user_id, hour],
-                order_by: [
-                { user_id: asc },
-                { hour: asc }, 
-                { created_at: desc }
-                ]
-            ) {
-                id
-                hour: created_at
-            }
-            }
-        `;
-
-            // Then delete old records except those we want to keep
-            const deleteOldRecordsQuery = `
-            mutation DeleteOldRecords($startTime: timestamptz!, $endTime: timestamptz!, $keepIds: [uuid!]!) {
-            delete_geolocation_user_location(
-                where: {
-                created_at: { _gte: $startTime, _lt: $endTime },
-                id: { _nin: $keepIds }
-                }
-            ) {
-                affected_rows
-            }
-            }
-        `;
-            // Get records to keep
-            const keepData = await graphqlClient.request<{
-                geolocation_user_location: { id: string; hour: string }[];
-            }>(keepRecordsQuery, {
-                startTime: twoHoursAgo.toISOString(),
-                endTime: oneHourAgo.toISOString()
+            }>(getLocationsQuery, {
+                cutoffTime
             });
 
-            const keepIds = keepData.geolocation_user_location.map(
-                (record) => record.id
-            );
+            const locations = locationsData.geolocation_user_location;
+            const suspiciousLocationIds = new Set<string>();
+
+            // Group locations by user_id
+            const locationsByUser = locations.reduce((acc, loc) => {
+                if (!acc[loc.user_id]) {
+                    acc[loc.user_id] = [];
+                }
+                acc[loc.user_id].push(loc);
+                return acc;
+            }, {} as Record<string, typeof locations>);
+
+            // Validate each user's location sequence
+            for (const [userId, userLocations] of Object.entries(locationsByUser)) {
+                for (let i = 1; i < userLocations.length; i++) {
+                    const prevLoc = userLocations[i - 1];
+                    const currentLoc = userLocations[i];
+
+                    const distance = this.calculateDistance(
+                        prevLoc.latitude,
+                        prevLoc.longitude,
+                        currentLoc.latitude,
+                        currentLoc.longitude
+                    );
+
+                    const timeDiffMinutes =
+                        (new Date(currentLoc.created_at).getTime() - new Date(prevLoc.created_at).getTime())
+                        / (1000 * 60);
+
+                    if (timeDiffMinutes >= this.MIN_TIME_DIFF_MINUTES) {
+                        const speed = (distance / timeDiffMinutes) * 60;
+
+                        if (speed > this.MAX_SPEED_KMH) {
+                            console.warn('SUSPICIOUS LOCATION DETECTED:', {
+                                userId,
+                                distance: `${distance.toFixed(2)} km`,
+                                timeDiff: `${timeDiffMinutes.toFixed(2)} minutes`,
+                                speed: `${speed.toFixed(2)} km/h`,
+                                from: `${prevLoc.latitude}, ${prevLoc.longitude}`,
+                                to: `${currentLoc.latitude}, ${currentLoc.longitude}`,
+                                fromTime: prevLoc.created_at,
+                                toTime: currentLoc.created_at
+                            });
+                            suspiciousLocationIds.add(prevLoc.id);
+                            suspiciousLocationIds.add(currentLoc.id);
+                        }
+                    }
+                }
+            }
+
+            // Keep one record per hour per user and all suspicious locations
+            const keepRecordsQuery = `
+            query GetRecordsToKeep($cutoffTime: timestamp!) {
+                geolocation_user_location(
+                    where: {
+                        created_at: { _gte: $cutoffTime }
+                    },
+                    distinct_on: [user_id, created_at],
+                    order_by: [
+                        { user_id: asc },
+                        { created_at: desc }
+                    ]
+                ) {
+                    id
+                    created_at
+                }
+            }`;
+
+            const keepData = await graphqlClient.request<{
+                geolocation_user_location: { id: string; created_at: string }[];
+            }>(keepRecordsQuery, {
+                cutoffTime
+            });
+
+            const keepIds = [
+                ...keepData.geolocation_user_location.map(record => record.id),
+                ...Array.from(suspiciousLocationIds)
+            ];
+
             // Delete old records except those we want to keep
+            const deleteOldRecordsQuery = `
+            mutation DeleteOldRecords($cutoffTime: timestamp!, $keepIds: [uuid!]!) {
+                delete_geolocation_user_location(
+                    where: {
+                        created_at: { _gte: $cutoffTime },
+                        id: { _nin: $keepIds }
+                    }
+                ) {
+                    affected_rows
+                }
+            }`;
+
             const deleteData = await graphqlClient.request<{
                 delete_geolocation_user_location: { affected_rows: number };
             }>(deleteOldRecordsQuery, {
-                startTime: twoHoursAgo.toISOString(),
-                endTime: oneHourAgo.toISOString(),
+                cutoffTime,
                 keepIds
             });
 
-            console.log(`Cleaned up ${deleteData.delete_geolocation_user_location.affected_rows} location records`);
-
             return {
                 success: true,
-                deletedCount: deleteData.delete_geolocation_user_location.affected_rows
+                deletedCount: deleteData.delete_geolocation_user_location.affected_rows,
+                suspiciousLocationsFound: suspiciousLocationIds.size
             };
         } catch (error) {
             console.error('Error cleaning up location history:', error);
@@ -166,22 +182,9 @@ export class LocationCleanupService {
         }
     }
 
-    // Add method to validate and save location
-    static async validateAndSaveLocation(userId: string, latitude: number, longitude: number): Promise<boolean> {
-        const timestamp = new Date().toISOString();
-        const isValid = await this.validateLocationSpeed(userId, latitude, longitude, timestamp);
-
-        if (!isValid) {
-            console.warn('Location validation failed - possible GPS spoofing detected');
-            return false;
-        }
-
-        return true;
-    }
-
-    static startCleanupSchedule(intervalMinutes = 5) {
+    static startCleanupSchedule(intervalMS = 60000) {
         setInterval(async () => {
             await this.cleanupLocationHistory();
-        }, intervalMinutes * 60 * 1000);
+        }, intervalMS);
     }
 }
