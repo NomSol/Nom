@@ -6,6 +6,9 @@ import { SidebarProvider } from "@/components/dashboard/sidebar";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css"; // Import Mapbox styles
 import { useEffect, useRef, useState } from "react";
+import { useGeolocation } from "./useGeolocation";
+
+
 
 // Load Access Token from environment variables
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -14,10 +17,21 @@ export default function MapPage() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
 
+  // Define refs
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null); // Ensure this is set correctly
+  const cleanupRef = useRef<() => void | null>(null);
+  const [orientation, setOrientation] = useState<number | null>(null); // Define orientation state
+
+  // Define startWatching function
+  const startWatching = () => {
+    // Your implementation for starting location watching
+  };
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    mapRef.current = new mapboxgl.Map({
+    const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
       center: [149.13, -35.28],
@@ -29,56 +43,18 @@ export default function MapPage() {
 
     // Save map instance to state
     setMapInstance(map);
+    mapRef.current = map; // Set mapRef
 
-    return () => mapRef.current?.remove();
+    return () => mapInstance?.remove();
   }, []);
 
   useEffect(() => {
-    if (markerRef.current && orientation !== null) {
-      markerRef.current.setRotation(orientation);
+    if (mapInstance && orientation !== null) {
+      markerRef.current?.setRotation(orientation);
     }
   }, [orientation]);
 
-  const saveUserLocation = async (latitude: number, longitude: number) => {
-    const userId = 'c410de2d-4d2c-4c9e-b2e3-f0ca3c2d540c'; // 
-    const query = `
-      mutation insertUserLocation($user_id: uuid!, $latitude: float8!, $longitude: float8!) {
-        insert_geolocation_user_location(objects: {
-          user_id: $user_id,
-          latitude: $latitude,
-          longitude: $longitude,
-          region: null,
-          altitude: 0.0
-        }) {
-          returning {
-            id
-          }
-        }
-      }
-    `;
-
-    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_ENDPOINT || '', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
-      },
-      body: JSON.stringify({
-        query,
-        variables: {
-          user_id: userId,
-          latitude,
-          longitude,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('save user location error:', errorData);
-    }
-  };
-
+  // Ensure useGeolocation is defined or imported correctly
   const { getLocation } = useGeolocation((position) => {
     const { latitude, longitude } = position.coords;
 
@@ -104,11 +80,11 @@ export default function MapPage() {
     saveUserLocation(latitude, longitude);
   });
 
-  const handleLocationClick = async () => {
-    cleanupRef.current?.();
-    await startWatching();
-    cleanupRef.current = getLocation();
-  };
+  // const handleLocationClick = async () => {
+  //   cleanupRef.current?.();
+  //   await startWatching();
+  //   cleanupRef.current = getLocation; // Ensure getLocation is called correctly
+  // };
 
   return (
     <MapContext.Provider value={mapInstance}>
@@ -126,3 +102,7 @@ export default function MapPage() {
     </MapContext.Provider>
   );
 }
+function saveUserLocation(latitude: number, longitude: number) {
+
+}
+
