@@ -1,12 +1,17 @@
-// npx ts-node -P tsconfig.tools.json src/tools/scan-functions.ts
+// run this script manually:
+// npx ts-node -P tsconfig.tools.json src/tools/scan-functions.ts [all|user|frontend] [llm|blank|info]
+
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import * as ts from 'typescript'
+
+type ScanMode = 'all' | 'user' | 'frontend'
 
 interface FunctionInfo {
     name: string
     filePath: string
     description?: string
+    functionType: string
     parameters: {
         name: string
         type: string
@@ -22,130 +27,158 @@ interface FunctionInfo {
 
 class FunctionScanner {
     private functions: FunctionInfo[] = []
+    private scanMode: ScanMode
+    private fillMode: 'llm' | 'blank' | 'info'
+
+    constructor(mode: ScanMode = 'all', fillMode: 'llm' | 'blank' | 'info' = 'blank') {
+        this.scanMode = mode
+        this.fillMode = fillMode
+    }
 
     async scanProject(basePath: string): Promise<FunctionInfo[]> {
-        await this.scanDir(resolve(basePath))
-        return this.functions
+        try {
+            await this.scanDir(resolve(basePath))
+            return this.functions
+        } catch (error) {
+            console.error('Error scanning project:', error)
+            return []
+        }
     }
 
     private async scanDir(dir: string) {
-        try {
-            const entries = await readdir(dir, { withFileTypes: true })
-
-            for (const entry of entries) {
-                const fullPath = join(dir, entry.name)
-
-                if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                    await this.scanDir(fullPath)
-                } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-                    await this.scanFile(fullPath)
-                }
+        const entries = await readdir(dir, { withFileTypes: true })
+        
+        for (const entry of entries) {
+            const fullPath = join(dir, entry.name)
+            
+            if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                await this.scanDir(fullPath)
+            } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
+                await this.scanFile(fullPath)
             }
-        } catch (error) {
-            console.error(`Error scanning directory ${dir}:`, error)
         }
     }
 
     private async scanFile(filePath: string) {
-        try {
-            const content = await readFile(filePath, 'utf-8')
-            const sourceFile = ts.createSourceFile(
-                filePath,
-                content,
-                ts.ScriptTarget.Latest,
-                true
-            )
+        const content = await readFile(filePath, 'utf-8')
+        const sourceFile = ts.createSourceFile(
+            filePath,
+            content,
+            ts.ScriptTarget.Latest,
+            true
+        )
 
-            this.visitNode(sourceFile, filePath)
-        } catch (error) {
-            console.error(`Error scanning file ${filePath}:`, error)
-        }
+        this.visitNode(sourceFile, filePath)
     }
 
     private visitNode(node: ts.Node, filePath: string) {
         if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
-            const jsDoc = ts.getJSDocTags(node)
-            const accessibilityTag = jsDoc.find(tag => tag.tagName.text === 'accessibility')
-
-            // if (accessibilityTag) {
-            if (true) {
-                const functionInfo = this.extractFunctionInfo(node, filePath)
+            const functionType = this.getFunctionType(node, filePath)
+            
+            if (this.shouldIncludeFunction(functionType)) {
+                const functionInfo = this.extractFunctionInfo(node, filePath, functionType)
                 if (functionInfo) {
                     this.functions.push(functionInfo)
                 }
             }
         }
 
-        ts.forEachChild(node, child => this.visitNode(child, filePath))
+        node.forEachChild(child => this.visitNode(child, filePath))
     }
 
-    private extractFunctionInfo(node: ts.FunctionDeclaration | ts.MethodDeclaration, filePath: string): FunctionInfo | null {
-        if (!node.name) return null
-        const functionInfo: FunctionInfo = {
-            name: node.name.getText(),
-            filePath: filePath.replace(process.cwd(), ''),
-            parameters: []
+    private getFunctionType(node: ts.Node, filePath: string): string {
+        if (filePath.includes('/components/') || filePath.endsWith('.tsx')) {
+            return 'frontend'
         }
+        
+        const name = (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node))
+            ? node.name?.getText().toLowerCase() || ''
+            : ''
+        
+        if (['handle', 'on', 'click', 'submit', 'change'].some(prefix => name.includes(prefix))) {
+            return 'user'
+        }
+        
+        return 'other'
+    }
 
-        // Extract parameters
-        node.parameters.forEach(param => {
-            functionInfo.parameters.push({
-                name: param.name.getText(),
-                type: param.type?.getText() || 'any',
-                isOptional: !!param.questionToken,
-                description: ''
-            })
-        })
+    private shouldIncludeFunction(functionType: string): boolean {
+        return this.scanMode === 'all' 
+            || (this.scanMode === 'user' && functionType === 'user')
+            || (this.scanMode === 'frontend' && functionType === 'frontend')
+    }
 
-        // Extract JSDoc info
-        const comments = ts.getJSDocCommentsAndTags(node)
-        if (comments && comments.length > 0) {
-            const mainJSDoc = comments[0]
-            functionInfo.description = ts.getTextOfJSDocComment(mainJSDoc.comment)?.toString() || ''
+    private generateDescription(
+        name: string,
+        parameters: Array<{ name: string; type: string }>,
+        returnType?: string
+    ): string {
+        switch (this.fillMode) {
+            case 'llm':
+                // Placeholder for LLM integration
+                return `Function ${name} - Description to be generated by LLM`
+            case 'info':
+                return `${name}: Accepts ${parameters.length} parameters, returns ${returnType || 'void'}`
+            default:
+                return `${name} function`
+        }
+    }
 
-            // Parse accessibility tag
-            const accessibilityTag = comments.find(c =>
-                ts.isJSDoc(c) && c.tags?.some(tag => tag.tagName.text === 'accessibility')
-            )
-            if (accessibilityTag) {
-                try {
-                    const comment = ts.getTextOfJSDocComment(accessibilityTag.comment)
-                    functionInfo.accessibility = JSON.parse(comment || '{}')
-                } catch (e) {
-                    console.warn(`Invalid accessibility tag in ${filePath}:`, e)
-                }
+    private extractFunctionInfo(
+        node: ts.FunctionDeclaration | ts.MethodDeclaration,
+        filePath: string,
+        functionType: string
+    ): FunctionInfo | null {
+        if (!node.name) return null
+
+        const name = node.name.getText()
+        const parameters = node.parameters.map(param => ({
+            name: param.name.getText(),
+            type: param.type?.getText() || 'any',
+            isOptional: !!param.questionToken,
+            description: ''
+        }))
+        const returnType = node.type?.getText()
+
+        const info: FunctionInfo = {
+            name,
+            filePath: filePath.replace(process.cwd(), ''),
+            functionType,
+            parameters,
+            returnType,
+            description: this.generateDescription(name, parameters, returnType),
+            accessibility: {
+                level: 'ENHANCED',
+                capabilities: ['SCREEN_READER']
             }
         }
 
-        return functionInfo
+        return info
     }
+
 
     async generateRegistryFile(outputPath: string) {
         const registryData = {
             timestamp: new Date().toISOString(),
+            scanMode: this.scanMode,
             functions: this.functions
         }
 
-        try {
-            await writeFile(
-                outputPath,
-                JSON.stringify(registryData, null, 2)
-            )
-            console.log(`Generated registry with ${this.functions.length} functions at ${outputPath}`)
-        } catch (error) {
-            console.error('Error writing registry file:', error)
-        }
+        await writeFile(outputPath, JSON.stringify(registryData, null, 2))
+        console.log(`Generated registry with ${this.functions.length} functions`)
     }
 }
 
-// Main execution
 async function main() {
-    const scanner = new FunctionScanner()
+    const mode = process.argv[2]?.toLowerCase() as ScanMode || 'all'
+    const scanner = new FunctionScanner(mode)
     await scanner.scanProject('./src')
     await scanner.generateRegistryFile('./src/services/accessibility/registry-data.json')
 }
 
-// Run if called directly
 if (require.main === module) {
     main().catch(console.error)
 }
+
+export { FunctionScanner, type FunctionInfo, type ScanMode }
+
