@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
-import { DraggableTreasureMarker } from "./DraggableTreasureMarker";
+import { DraggableTreasureMarkerSvg } from "./Draggablesvgmarker";
 
 interface TreasureCreationFormProps {
   map: any;
@@ -36,7 +36,7 @@ export function TreasureCreationForm({
   return (
     <div className="flex flex-col gap-2 mt-2">
       {map && (
-        <DraggableTreasureMarker
+        <DraggableTreasureMarkerSvg
           map={map}
           latString={latitude}
           lngString={longitude}
