@@ -12,12 +12,16 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'olrroljvdxkccfqdxeis.supabase.co',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "olrroljvdxkccfqdxeis.supabase.co",
+        pathname: "/**",
       },
     ],
   },
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
+
+// module.exports = {
+//   reactStrictMode: false,
+// };
