@@ -17,11 +17,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <ProtectPage>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <ProtectPage>
           {children}
-        </QueryClientProvider>
-      </ProtectPage>
+        </ProtectPage>
+      </QueryClientProvider>
     </SessionProvider>
   );
 }

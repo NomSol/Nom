@@ -1,8 +1,11 @@
 "use client";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
 import { ChevronDown, Building, User, Link } from "lucide-react";
+import { AiFillHome } from "react-icons/ai";
+import { FaMapMarkedAlt } from "react-icons/fa";
 import {
   Sidebar,
   SidebarHeader,
@@ -27,12 +30,13 @@ import { SearchCity } from "./searchcity";
 import { TreasureListDropdown } from "./TreasureListDropdown";
 
 const items = [
-  { title: "Home", url: "/dashboard", icon: null },
-  { title: "Inbox", url: "#", icon: null },
+  { title: "Home", url: "/dashboard", icon: <AiFillHome /> },
+  { title: "Map", url: "/main/dashboard", icon: <FaMapMarkedAlt /> },
 ];
 
 export function AppSidebar() {
   const { data: session, status } = useSession();
+  const pathname = usePathname(); // 获取当前路
 
   return (
     <>
@@ -87,7 +91,12 @@ export function AppSidebar() {
                 {items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <a href={item.url}>
+                      <a href={item.url}
+                        className={`flex items-center gap-2 ${pathname === item.url
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }`}>
+                        <span className="text-xl">{item.icon}</span>
                         <span>{item.title}</span>
                       </a>
                     </SidebarMenuButton>

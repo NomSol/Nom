@@ -1,9 +1,12 @@
 "use client";
 
 import { useUserProfile } from '@/hooks/use-user';
+import { useRouter } from 'next/navigation';
 
 export function MainContent() {
-    const { profile, isLoading, error } = useUserProfile();
+    const router = useRouter();
+
+    const { profile, isLoading, error } = useUserProfile({ enabled: true });
 
     if (error) {
         return (
@@ -58,6 +61,12 @@ export function MainContent() {
                 <div className="user-created text-gray-500 text-sm mt-4">
                     加入时间：{new Date(profile.created_at).toLocaleDateString()}
                 </div>
+            </div>
+
+            <div className='flex items-center ml-10'>
+                <button className="btn btn-primary"
+                    onClick={() => router.push('/settings')}
+                >Setting</button>
             </div>
         </div>
     );

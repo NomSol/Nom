@@ -10,3 +10,13 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
 }
+
+// src/types/user.ts
+export interface UserProfileInput {
+  nickname: string;
+  avatar_url: string;
+  cath_id: string;
+  ip_location?: string;
+  description?: string;
+  email?: string;
+}
