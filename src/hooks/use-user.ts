@@ -10,7 +10,8 @@ export function useUserProfile(p0: { enabled: boolean; }) {
     const {
         data: profile,
         isLoading,
-        error
+        error,
+        refetch // 解构 refetch 方法
     } = useQuery({
         queryKey: ['userProfile', email],
         queryFn: async () => {
@@ -29,13 +30,14 @@ export function useUserProfile(p0: { enabled: boolean; }) {
                 throw new Error('Failed to fetch profile');
             }
 
+
             const data = await response.json();
 
             // 检查用户数据是否存在，如果不存在抛出错误
             if (!data.users[0] || data.users.length === 0) {
                 throw new Error('No user profile found');
             }
-
+            console.log("11111111111111111111111111111", data.users[0]);
             return data.users[0] as UserProfile; // 返回用户数据
 
         },
@@ -45,7 +47,8 @@ export function useUserProfile(p0: { enabled: boolean; }) {
     return {
         profile,
         isLoading,
-        error
+        error,
+        refetch // 暴露 refetch 方法
     };
 }
 

@@ -1,12 +1,21 @@
 "use client";
 
 import { useUserProfile } from '@/hooks/use-user';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 export function MainContent() {
     const router = useRouter();
+    const pathname = usePathname() ?? "";
+    const { profile, isLoading, error, refetch } = useUserProfile({ enabled: true });
 
-    const { profile, isLoading, error } = useUserProfile({ enabled: true });
+    // 监听路由返回并刷新数据
+    useEffect(() => {
+        if (pathname === '/dashboard') { // 替换为实际路径
+            refetch(); // 强制刷新用户数据
+        }
+    }, [router, refetch]);
+
 
     if (error) {
         return (
