@@ -1,34 +1,24 @@
 // app/(main)/match/page.tsx
-'use client';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useUserProfile } from '@/hooks/use-user';
-import MatchMaking from '@/components/match/match-making';
-import MatchDetail from '@/components/match/match-detail';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useUserProfile } from "@/hooks/use-user";
+import MatchMaking from "@/components/match/match-making";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Timer } from "lucide-react";
 
 export default function MatchPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const matchId = searchParams?.get('id') || null;
   const { profile, isLoading } = useUserProfile();
 
   const handleMatchStart = (id: string) => {
-    router.push(`/match?id=${id}`);
+    router.push(`/match/${id}`);
   };
-
-  const handleBackToMatching = () => {
-    router.push('/match');
-  };
-
-  console.log('Current matchId:', matchId);
-  console.log('Profile:', profile);
 
   if (isLoading) {
     return (
       <div className="container py-8 text-center">
-        <div className="animate-spin h-8 w-8 mx-auto mb-2" />
+        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
         <p>加载中...</p>
       </div>
     );
@@ -48,21 +38,7 @@ export default function MatchPage() {
 
   return (
     <div className="container py-8">
-      {!matchId ? (
-        <MatchMaking onMatchStart={handleMatchStart} />
-      ) : (
-        <div className="space-y-4">
-          <Button 
-            onClick={handleBackToMatching} 
-            variant="ghost"
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回匹配
-          </Button>
-          <MatchDetail matchId={matchId} />
-        </div>
-      )}
+      <MatchMaking onMatchStart={handleMatchStart} />
     </div>
   );
 }

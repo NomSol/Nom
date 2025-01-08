@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { useUserProfile } from '@/hooks/use-user'; 
 import { useMatchActions, useWaitingMatches } from '@/hooks/use-match';
@@ -5,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, Timer } from 'lucide-react';
+import type { Match } from '@/types/matches';
 
 interface MatchMakingProps {
   onMatchStart: (matchId: string) => void;
@@ -14,7 +17,7 @@ const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const { createMatch, addTeamMember } = useMatchActions();
-  const { waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(
+  const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(
     selectedSize ? `${selectedSize}v${selectedSize}` : ''
   );
 
@@ -76,8 +79,6 @@ const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
             }
           }
         });
-
-        console.log('Match created:', result);
 
         if (result && result.id && result.match_teams && result.match_teams.length > 0) {
           await addTeamMember.mutateAsync({

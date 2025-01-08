@@ -74,6 +74,7 @@ export const GET_MATCH_DETAILS = gql`
           user_id
           individual_score
           user {
+            id
             nickname
             avatar_url
           }
@@ -84,6 +85,7 @@ export const GET_MATCH_DETAILS = gql`
           score
           discovered_at
           treasure {
+            id
             name
             points
           }

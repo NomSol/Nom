@@ -1,15 +1,17 @@
-// components/match/match-history.tsx
+"use client";
+
 import { useUserMatchHistory } from '@/hooks/use-match';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { Trophy, Users } from 'lucide-react';
+import type { MatchMember } from '@/types/matches';
 
 interface MatchHistoryProps {
   userId: string;
 }
 
 const MatchHistory = ({ userId }: MatchHistoryProps) => {
-  const { matchHistory, isLoading } = useUserMatchHistory(userId);
+  const { data: matchHistory, isLoading } = useUserMatchHistory(userId);
 
   if (isLoading) {
     return (
@@ -27,7 +29,7 @@ const MatchHistory = ({ userId }: MatchHistoryProps) => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {matchHistory?.map((member) => {
+          {matchHistory?.map((member: MatchMember) => {
             // 确保类型安全的比较
             const isWinner = member.team.total_score === Math.max(
               ...member.match.match_teams.map(t => t.total_score)
@@ -46,7 +48,7 @@ const MatchHistory = ({ userId }: MatchHistoryProps) => {
                     {format(new Date(member.match.start_time), 'yyyy-MM-dd HH:mm')}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500">个人得分：</span>
