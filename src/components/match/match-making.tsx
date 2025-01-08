@@ -1,19 +1,16 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user';
 import { useMatchActions, useWaitingMatches } from '@/hooks/use-match';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, Timer } from 'lucide-react';
-// import type { UserProfile } from '@/types/user';
 
-interface MatchMakingProps {
-  onMatchStart: (matchId: string) => void;
-}
-
-const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
+const MatchMaking = () => {
+  const router = useRouter();
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,11 +46,11 @@ const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
       }
 
       setError(null);
+      console.log('Starting match...');
       const matchType = `${size}v${size}`;
 
       // 查找可加入的对局
       const availableMatch = waitingMatches?.find(match => {
-        // 检查是否有可加入的队伍且玩家未在此对局中
         return match.match_teams.some(team => 
           team.current_players < team.max_players &&
           !team.match_members.some(member => member.user_id === profile.id)
@@ -82,7 +79,7 @@ const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
             current_players: teamToJoin.current_players + 1
           });
 
-          onMatchStart(availableMatch.id);
+          router.push(`/main/match/detail`);
         }
       } else {
         // 创建新对局
@@ -94,7 +91,7 @@ const MatchMaking = ({ onMatchStart }: MatchMakingProps) => {
         });
 
         if (result?.id) {
-          onMatchStart(result.id);
+          router.push('/main/match/detail');
         } else {
           throw new Error('创建对局失败');
         }

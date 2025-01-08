@@ -69,29 +69,35 @@ export const GET_MATCH_DETAILS = gql`
       status
       start_time
       end_time
-      match_teams {
-        id
-        team_number
-        total_score
-        match_members {
+      match_teams_aggregate {
+        nodes {
           id
-          user_id
-          individual_score
-          user {
-            id
-            nickname
-            avatar_url
+          team_number
+          total_score
+          match_members_aggregate {
+            nodes {
+              id
+              user_id
+              individual_score
+              user {
+                id
+                nickname
+                avatar_url
+              }
+            }
           }
-        }
-        match_discoveries {
-          id
-          treasure_id
-          score
-          discovered_at
-          treasure {
-            id
-            name
-            points
+          match_discoveries_aggregate {
+            nodes {
+              id
+              treasure_id
+              score
+              discovered_at
+              treasure {
+                id
+                name
+                points
+              }
+            }
           }
         }
       }

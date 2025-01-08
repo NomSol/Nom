@@ -24,10 +24,26 @@ import {
   UPDATE_TEAM_PLAYERS 
 } from "@/graphql/matches";
 
+const CURRENT_MATCH_KEY = ['current-match'] as const;
+
+export function useCurrentMatch() {
+  const queryClient = useQueryClient();
+  
+  return {
+    currentMatchId: queryClient.getQueryData<string>(CURRENT_MATCH_KEY),
+    setCurrentMatch: (matchId: string) => {
+      queryClient.setQueryData(CURRENT_MATCH_KEY, matchId);
+    },
+    clearCurrentMatch: () => {
+      queryClient.setQueryData(CURRENT_MATCH_KEY, null);
+    }
+  };
+}
+
 // 使用单个对战详情
 export function useMatch(id: string) {
   return useQuery({
-    queryKey: ["match", id] as const,
+    queryKey: ["match", id],
     queryFn: async () => {
       const response = await graphqlClient.request<GetMatchDetailsResponse>(
         GET_MATCH_DETAILS, 
@@ -62,6 +78,7 @@ export function useWaitingMatches(matchType: string) {
 
 export function useMatchActions() {
   const queryClient = useQueryClient();
+  const { setCurrentMatch } = useCurrentMatch();
 
   const createMatch = useMutation({
     mutationFn: async (variables: { object: CreateMatchInput }) => {
@@ -102,7 +119,8 @@ export function useMatchActions() {
         match_teams: teamsResponse.insert_match_teams.returning
       };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setCurrentMatch(data.id);
       queryClient.invalidateQueries({ queryKey: ["waiting-matches"] });
     },
   });

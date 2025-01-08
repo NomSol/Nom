@@ -1,19 +1,13 @@
-// app/(main)/match/page.tsx
+// src/app/(main)/match/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useUserProfile } from "@/hooks/use-user";
 import MatchMaking from "@/components/match/match-making";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Timer } from "lucide-react";
 
 export default function MatchPage() {
-  const router = useRouter();
   const { profile, isLoading } = useUserProfile();
-
-  const handleMatchStart = (id: string) => {
-    router.push(`/match/${id}`);
-  };
 
   if (isLoading) {
     return (
@@ -38,7 +32,7 @@ export default function MatchPage() {
 
   return (
     <div className="container py-8">
-      <MatchMaking onMatchStart={handleMatchStart} />
+      <MatchMaking />
     </div>
   );
 }

@@ -51,6 +51,7 @@ export interface MatchDiscovery {
 export interface CreateMatchInput {
   match_type: string;
   required_players_per_team: number;
+  status?: string;
 }
 
 export interface CreateTeamInput {

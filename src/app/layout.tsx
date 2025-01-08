@@ -18,8 +18,6 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
 
-
-
   return (
     <html lang="zh">
       <body className={inter.className}>
