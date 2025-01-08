@@ -1,28 +1,32 @@
 import { gql } from 'graphql-request';
 
-// 创建对战
+// 创建对局
 export const CREATE_MATCH = gql`
-  mutation CreateMatch($object: treasure_matches_insert_input!) {
-    insert_treasure_matches_one(object: $object) {
+  mutation CreateMatch($match_type: String!, $required_players_per_team: Int!) {
+    insert_treasure_matches_one(
+      object: {
+        match_type: $match_type
+        status: "matching"
+        required_players_per_team: $required_players_per_team
+      }
+    ) {
       id
       match_type
       status
-      start_time
-      end_time
-      created_at
     }
   }
 `;
 
 // 创建队伍
-export const CREATE_TEAM = gql`
-  mutation CreateTeam($object: match_teams_insert_input!) {
-    insert_match_teams_one(object: $object) {
-      id
-      match_id
-      team_number
-      total_score
-      created_at
+export const CREATE_TEAMS = gql`
+  mutation CreateTeams($teams: [match_teams_insert_input!]!) {
+    insert_match_teams(objects: $teams) {
+      returning {
+        id
+        team_number
+        current_players
+        max_players
+      }
     }
   }
 `;
@@ -121,6 +125,19 @@ export const UPDATE_TEAM_SCORE = gql`
   }
 `;
 
+// 更新队伍人数
+export const UPDATE_TEAM_PLAYERS = gql`
+  mutation UpdateTeamPlayers($team_id: uuid!, $current_players: Int!) {
+    update_match_teams_by_pk(
+      pk_columns: { id: $team_id }
+      _set: { current_players: $current_players }
+    ) {
+      id
+      current_players
+    }
+  }
+`;
+
 // 获取用户的对战历史
 export const GET_USER_MATCH_HISTORY = gql`
   query GetUserMatchHistory($userId: uuid!) {
@@ -153,7 +170,7 @@ export const GET_USER_MATCH_HISTORY = gql`
 export const GET_WAITING_MATCHES = gql`
   query GetWaitingMatches($matchType: String!) {
     treasure_matches(
-      where: { 
+      where: {
         status: { _eq: "matching" },
         match_type: { _eq: $matchType }
       }
@@ -162,10 +179,13 @@ export const GET_WAITING_MATCHES = gql`
       match_type
       created_at
       match_teams {
-        match_members_aggregate {
-          aggregate {
-            count
-          }
+        id
+        team_number
+        current_players
+        max_players
+        match_members {
+          id
+          user_id
         }
       }
     }
