@@ -4,18 +4,32 @@ import { useMatch } from "@/hooks/use-match";
 import { useUserProfile } from "@/hooks/use-user";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Timer } from "lucide-react";
-import type { MatchTeam, MatchMember, MatchDiscovery } from "@/types/matches";
+import { Badge } from "@/components/ui/badge";
+import { Timer, Trophy, User, Users } from "lucide-react";
 
 interface MatchDetailProps {
   matchId: string;
 }
 
 export default function MatchDetail({ matchId }: MatchDetailProps) {
-  const { data: match, isLoading: isLoadingMatch, error } = useMatch(matchId);
+  const { data: match, isLoading, error } = useMatch(matchId);
   const { profile } = useUserProfile();
 
-  if (isLoadingMatch) {
+  // 获取匹配状态显示
+  const getStatusDisplay = (status?: string) => {
+    switch (status) {
+      case 'matching':
+        return <Badge variant="secondary">匹配中</Badge>;
+      case 'playing':
+        return <Badge variant="default">进行中</Badge>;
+      case 'finished':
+        return <Badge variant="outline">已结束</Badge>;
+      default:
+        return <Badge variant="secondary">{status || '未知状态'}</Badge>;
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="text-center py-8">
         <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
@@ -37,119 +51,130 @@ export default function MatchDetail({ matchId }: MatchDetailProps) {
   if (!profile) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>
-          请先登录
-        </AlertDescription>
+        <AlertDescription>请先登录</AlertDescription>
       </Alert>
     );
   }
 
-  const userTeam = match.match_teams.find(team =>
-    team.match_members.some(member => member.user_id === profile.id)
+  // 确保 match_teams 是数组
+  const teams = Array.isArray(match.match_teams) ? match.match_teams : [];
+  
+  // 找到玩家所在的队伍和对手队伍
+  const userTeam = teams.find(team => 
+    team.match_members?.some(member => member.user_id === profile.id)
   );
 
-  const otherTeam = match.match_teams.find(team => team.id !== userTeam?.id);
+  const otherTeam = teams.find(team => team.id !== userTeam?.id);
 
   return (
     <div className="space-y-6">
+      {/* 对局信息卡片 */}
       <Card>
-        <CardHeader>
-          <h2 className="text-xl font-bold text-center">
-            {match.match_type} 对战
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              ({match.status === 'matching' ? '匹配中' : '进行中'})
-            </span>
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-8">
-            {/* 我方队伍 */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-center">我方队伍</h3>
-              <div className="space-y-2">
-                {userTeam?.match_members.map((member: MatchMember) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                  >
-                    <div className="flex items-center space-x-2">
-                      {member.user.avatar_url && (
-                        <img
-                          src={member.user.avatar_url}
-                          alt={member.user.nickname}
-                          className="w-6 h-6 rounded-full"
-                        />
-                      )}
-                      <span>{member.user.nickname}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {member.individual_score || 0} 分
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="text-center text-sm text-gray-500">
-                总分: {userTeam?.total_score || 0}
-              </div>
-            </div>
-
-            {/* 对方队伍 */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-center">对方队伍</h3>
-              <div className="space-y-2">
-                {otherTeam?.match_members.map((member: MatchMember) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                  >
-                    <div className="flex items-center space-x-2">
-                      {member.user.avatar_url && (
-                        <img
-                          src={member.user.avatar_url}
-                          alt={member.user.nickname}
-                          className="w-6 h-6 rounded-full"
-                        />
-                      )}
-                      <span>{member.user.nickname}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {member.individual_score || 0} 分
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="text-center text-sm text-gray-500">
-                总分: {otherTeam?.total_score || 0}
-              </div>
-            </div>
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2">
+            <h2 className="text-2xl font-bold">{match.match_type} 对战</h2>
+            {getStatusDisplay(match.status)}
           </div>
-        </CardContent>
+          <p className="text-sm text-gray-500">
+            {match.start_time ? `开始时间: ${new Date(match.start_time).toLocaleString()}` : '等待开始'}
+          </p>
+        </CardHeader>
       </Card>
 
-      {/* 发现的宝藏列表 */}
+      {/* 队伍信息 */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* 我的队伍 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Users className="w-5 h-5 mr-2" />
+                我的队伍
+              </h3>
+              <Badge variant="outline">总分: {userTeam?.total_score ?? 0}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {userTeam?.match_members?.map(member => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <span>{member.user?.nickname}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-yellow-500" />
+                    <span>{member.individual_score ?? 0} 分</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 对手队伍 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Users className="w-5 h-5 mr-2" />
+                对手队伍
+              </h3>
+              <Badge variant="outline">总分: {otherTeam?.total_score ?? 0}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {otherTeam?.match_members?.map(member => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <span>{member.user?.nickname}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-yellow-500" />
+                    <span>{member.individual_score ?? 0} 分</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 宝藏发现记录 */}
       <Card>
         <CardHeader>
-          <h3 className="font-medium">已发现的宝藏</h3>
+          <h3 className="text-lg font-semibold">已发现的宝藏</h3>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {userTeam?.match_discoveries.map((discovery: MatchDiscovery) => (
-              <div
-                key={discovery.id}
-                className="flex items-center justify-between p-2 bg-gray-50 rounded"
-              >
-                <span>{discovery.treasure.name}</span>
-                <span className="text-sm text-gray-500">
-                  +{discovery.score} 分
-                </span>
-              </div>
-            ))}
-            {(!userTeam?.match_discoveries || userTeam.match_discoveries.length === 0) && (
-              <div className="text-center text-sm text-gray-500 py-4">
-                还未发现任何宝藏
-              </div>
-            )}
-          </div>
+          {userTeam?.match_discoveries?.length ? (
+            <div className="space-y-3">
+              {userTeam.match_discoveries.map(discovery => (
+                <div
+                  key={discovery.id}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
+                  <span>{discovery.treasure?.name}</span>
+                  <Badge variant="secondary">+{discovery.score ?? 0} 分</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">
+              还未发现任何宝藏
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

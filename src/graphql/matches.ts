@@ -40,7 +40,16 @@ export const ADD_TEAM_MEMBER = gql`
       team_id
       user_id
       individual_score
-      created_at
+      user {                  
+        id
+        nickname
+        avatar_url
+      }
+      team {              
+        id
+        team_number
+        total_score
+      }
     }
   }
 `;
@@ -69,35 +78,37 @@ export const GET_MATCH_DETAILS = gql`
       status
       start_time
       end_time
-      match_teams_aggregate {
-        nodes {
+      required_players_per_team   
+      match_teams {
+        id
+        team_number
+        total_score
+        current_players
+        max_players
+        match_members {
           id
-          team_number
-          total_score
-          match_members_aggregate {
-            nodes {
-              id
-              user_id
-              individual_score
-              user {
-                id
-                nickname
-                avatar_url
-              }
-            }
+          user_id
+          individual_score
+          user {
+            id
+            nickname
+            avatar_url
           }
-          match_discoveries_aggregate {
-            nodes {
-              id
-              treasure_id
-              score
-              discovered_at
-              treasure {
-                id
-                name
-                points
-              }
-            }
+          team {
+            id
+            team_number
+            total_score
+          }
+        }
+        match_discoveries {
+          id
+          treasure_id
+          score
+          discovered_at
+          treasure {
+            id
+            name
+            points
           }
         }
       }
@@ -140,6 +151,7 @@ export const UPDATE_TEAM_PLAYERS = gql`
     ) {
       id
       current_players
+      max_players         
     }
   }
 `;
@@ -183,7 +195,10 @@ export const GET_WAITING_MATCHES = gql`
     ) {
       id
       match_type
-      created_at
+      status                   
+      start_time              
+      end_time                 
+      required_players_per_team
       match_teams {
         id
         team_number

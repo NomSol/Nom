@@ -49,7 +49,18 @@ export function useMatch(id: string) {
         GET_MATCH_DETAILS, 
         { id }
       );
-      return response.treasure_matches_by_pk;
+      
+      // 添加数据校验和转换
+      const match = response.treasure_matches_by_pk;
+      if (!match) {
+        throw new Error('Match not found');
+      }
+      
+      // 确保 match_teams 是数组
+      return {
+        ...match,
+        match_teams: match.match_teams || []
+      };
     },
     enabled: Boolean(id),
     refetchInterval: (query) => {
@@ -60,6 +71,7 @@ export function useMatch(id: string) {
     },
   });
 }
+
 
 export function useWaitingMatches(matchType: string) {
   return useQuery({
