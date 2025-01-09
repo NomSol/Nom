@@ -25,15 +25,15 @@ export default function MatchDetailPage() {
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="container py-8">
-        <Alert variant="destructive">
-          <AlertDescription>请先登录后再访问此页面</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  // if (!profile) {
+  //   return (
+  //     <div className="container py-8">
+  //       <Alert variant="destructive">
+  //         <AlertDescription>请先登录后再访问此页面</AlertDescription>
+  //       </Alert>
+  //     </div>
+  //   );
+  // }
 
   if (!currentMatchId) {
     router.push('/match');

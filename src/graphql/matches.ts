@@ -212,3 +212,24 @@ export const GET_WAITING_MATCHES = gql`
     }
   }
 `;
+
+export const LEAVE_MATCH = gql`
+  mutation LeaveMatch($match_id: uuid!, $user_id: uuid!) {
+    delete_match_members(
+      where: { 
+        match_id: { _eq: $match_id },
+        user_id: { _eq: $user_id }
+      }
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+export const DELETE_MATCH = gql`
+  mutation DeleteMatch($match_id: uuid!) {
+    delete_treasure_matches_by_pk(id: $match_id) {
+      id
+    }
+  }
+`;

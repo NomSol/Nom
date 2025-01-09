@@ -18,8 +18,10 @@ import {
   ADD_TEAM_MEMBER, 
   CREATE_MATCH, 
   CREATE_TEAMS, 
+  DELETE_MATCH, 
   GET_MATCH_DETAILS, 
   GET_WAITING_MATCHES, 
+  LEAVE_MATCH, 
   UPDATE_MATCH_STATUS, 
   UPDATE_TEAM_PLAYERS 
 } from "@/graphql/matches";
@@ -185,11 +187,31 @@ export function useMatchActions() {
     },
   });
 
+  const leaveMatch = useMutation({
+    mutationFn: async ({ match_id, user_id }: { match_id: string; user_id: string }) => {
+      return graphqlClient.request(LEAVE_MATCH, { match_id, user_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+    },
+  });
+
+  const deleteMatch = useMutation({
+    mutationFn: async (match_id: string) => {
+      return graphqlClient.request(DELETE_MATCH, { match_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+    },
+  });
+
   return {
     createMatch,
     addTeamMember,
     updateTeamPlayers,
     updateMatchStatus,
+    leaveMatch,
+    deleteMatch,
   };
 }
 
