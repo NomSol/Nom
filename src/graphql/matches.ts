@@ -5,8 +5,8 @@ export const CREATE_MATCH = gql`
   mutation CreateMatch($match_type: String!, $required_players_per_team: Int!) {
     insert_treasure_matches_one(
       object: {
-        match_type: $match_type
-        status: "matching"
+        match_type: $match_type,
+        status: "matching",
         required_players_per_team: $required_players_per_team
       }
     ) {

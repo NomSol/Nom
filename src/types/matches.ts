@@ -52,6 +52,7 @@ export interface CreateMatchInput {
   match_type: string;
   required_players_per_team: number;
   status?: string;
+  user_id: string;
 }
 
 export interface CreateTeamInput {
@@ -94,6 +95,16 @@ export interface CreateMatchResponse {
     id: string;
     match_type: string;
     status: string;
+    match_teams: {
+      id: string;
+      team_number: number;
+      current_players: number;
+      max_players: number;
+      match_members: {
+        id: string;
+        user_id: string;
+      }[];
+    }[];
   };
 }
 

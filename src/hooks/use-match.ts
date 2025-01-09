@@ -104,9 +104,9 @@ export function useMatchActions() {
           required_players_per_team: variables.object.required_players_per_team
         }
       );
-
+  
       const match = matchResponse.insert_treasure_matches_one;
-
+  
       // 2. 创建两个队伍
       const teamsResponse = await graphqlClient.request<CreateTeamResponse>(
         CREATE_TEAMS,
@@ -127,11 +127,18 @@ export function useMatchActions() {
           ]
         }
       );
-
-      return {
-        ...match,
-        match_teams: teamsResponse.insert_match_teams.returning
-      };
+  
+      // 3. 将创建者添加到第一个队伍
+      const firstTeam = teamsResponse.insert_match_teams.returning[0];
+      await graphqlClient.request(ADD_TEAM_MEMBER, {
+        object: {
+          match_id: match.id,
+          team_id: firstTeam.id,
+          user_id: variables.object.user_id
+        }
+      });
+  
+      return match;
     },
     onSuccess: (data) => {
       setCurrentMatch(data.id);

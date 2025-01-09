@@ -149,7 +149,8 @@ const MatchMaking = () => {
         const result = await createMatch.mutateAsync({
           object: {
             match_type: matchType,
-            required_players_per_team: size
+            required_players_per_team: size,
+            user_id: profile.id
           }
         });
 
