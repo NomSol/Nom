@@ -1,0 +1,48 @@
+
+name: Deploy to AWS Fargate
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Configure AWS credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 4: Build and Push Docker Image to ECR
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG=$(date +%s)
+          REPOSITORY_URI="123456789012.dkr.ecr.us-east-1.amazonaws.com/nextjs-repo"
+          docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+          docker push $REPOSITORY_URI:$IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      # Step 5: Deploy to ECS
+      - name: Deploy to ECS
+        run: |
+          CLUSTER_NAME="nextjs-cluster"
+          SERVICE_NAME="nextjs-service"
+          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition nextjs-task)
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition.containerDefinitions[0].image = $IMAGE')
+          echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment

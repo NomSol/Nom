@@ -1,6 +1,6 @@
 import { RegisterForm } from '@/components/features/auth/register-form';
 
-export default function RegisterPage() {
+ function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
@@ -10,3 +10,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+export default RegisterPage

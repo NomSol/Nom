@@ -165,7 +165,7 @@ import {
   SidebarTrigger,
 } from "@/components/dashboard/sidebar";
 import { Building, ChevronDown, User } from "lucide-react";
-import { useSession } from "next-auth/react";
+import {signOut, useSession} from "next-auth/react";
 import { AISidebarDialog } from "./ai-dialog";
 import { SearchCity } from "./searchcity";
 import { TreasureListDropdown } from "./TreasureListDropdown";
@@ -177,7 +177,7 @@ const items = [
 
 export function AppSidebar() {
 
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
   return (
     <>

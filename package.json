@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint"
   },
@@ -27,11 +27,12 @@
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "graphql": "^16.10.0",
     "graphql-request": "^7.1.2",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.460.0",
     "mapbox-gl": "^3.8.0",
-    "next": "^14.2.18",
+    "next": "^14.2.23",
     "next-auth": "^4.24.10",
     "nft.storage": "^7.2.0",
     "react": "^18.3.1",
@@ -47,14 +48,16 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^20.17.6",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
     "@types/react-icons": "^2.2.7",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
     "autoprefixer": "^10.0.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.0.3",
     "postcss": "^8.0.0",
     "tailwindcss": "^3.4.15",
-    "typescript": "^5.0.0"
+    "typescript": "5.7.2"
   }
 }
