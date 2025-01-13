@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Heart, Trash } from 'lucide-react';
+import { Check, Edit, Heart, Trash } from 'lucide-react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useUserProfile } from '@/hooks/use-user';
 import { useLikes } from '@/hooks/use-likes';
 import { Treasure } from '@/types/treasure';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { VerifyTreasureDialog } from './verify-dialog';
 
 
 interface TreasureCardProps {
@@ -17,9 +19,14 @@ interface TreasureCardProps {
 
 export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) {
   const { data: session } = useSession();
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const { profile } = useUserProfile({ enabled: !!session?.user?.email });
   const { isLiked, likeTreasure, unlikeTreasure } = useLikes();
   const liked = isLiked(treasure.id);
+  // Check if this treasure is created by the current user
+  const isCreator = treasure.creator_id === profile?.id;
+  // Check if this treasure is already found by the current user
+  const isFound = treasure.finder_id === profile?.id;
 
   console.log('TreasureCard render:', {
     treasureId: treasure.id,
@@ -104,8 +111,32 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
           <div>Status: {treasure.status}</div>
           <div>Lat: {treasure.latitude.toFixed(6)}</div>
           <div>Long: {treasure.longitude.toFixed(6)}</div>
+          
+          {/* Add verify button if not creator and not found */}
+          {!isCreator && !isFound && (
+            <Button 
+              className="col-span-2 mt-2"
+              onClick={() => setVerifyDialogOpen(true)}
+            >
+              验证宝藏
+            </Button>
+          )}
+          
+          {/* Show found status if found */}
+          {isFound && (
+            <div className="col-span-2 flex items-center justify-center gap-2 text-green-600">
+              <Check className="w-4 h-4" />
+              <span>已找到</span>
+            </div>
+          )}
         </div>
       </CardContent>
+
+      <VerifyTreasureDialog
+        treasureId={treasure.id}
+        isOpen={verifyDialogOpen}
+        onClose={() => setVerifyDialogOpen(false)}
+      />
     </Card>
   );
 }
