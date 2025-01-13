@@ -12,6 +12,7 @@ export interface Treasure {
   updated_at?: string;
   ipfs_hash?: string;
   ipfs_metadata_hash?: string;
+  likes_count: number;
 }
 
 export interface CreateTreasureInput {
