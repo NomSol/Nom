@@ -37,7 +37,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
   });
 
   const handleLikeClick = async () => {
-    if (!profile?.cath_id) {
+    if (!profile?.id) {
       console.log('No profile or cath_id found, cannot like/unlike');
       return;
     }
@@ -78,7 +78,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
             variant="ghost"
             size="icon"
             onClick={handleLikeClick}
-            disabled={!profile?.cath_id}
+            disabled={!profile?.id}
             className="relative"
           >
             <Heart
