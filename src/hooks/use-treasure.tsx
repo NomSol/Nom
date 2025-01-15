@@ -7,21 +7,12 @@ import {
   CREATE_TREASURE,
   UPDATE_TREASURE,
   DELETE_TREASURE,
+  GET_USER_PLACEMENTS,
+  VERIFY_TREASURE,
+  GET_USER_FINDINGS,
 } from "@/graphql/treasures";
-
-export interface Treasure {
-  id: string;
-  name: string;
-  description: string;
-  points: number;
-  hint: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  image_url?: string;
-  created_at: string;
-  updated_at?: string;
-}
+import { Treasure, VerifyTreasureInput } from "@/types/treasure";
+import { useUserProfile } from "./use-user";
 
 interface GetTreasuresResponse {
   treasures: Treasure[];
@@ -29,6 +20,14 @@ interface GetTreasuresResponse {
 
 interface GetTreasureResponse {
   treasures_by_pk: Treasure;
+}
+
+interface UserPlacementsResponse {
+  treasures: Treasure[];
+}
+
+interface UserFindingsResponse {
+  treasures: Treasure[];
 }
 
 export interface CreateTreasureInput {
@@ -63,7 +62,9 @@ export function useTreasure(id: string) {
 
 export function useTreasures() {
   const queryClient = useQueryClient();
+  const { profile } = useUserProfile({ enabled: true });
 
+  // 获取所有宝藏
   const { data, isLoading, error } = useQuery<GetTreasuresResponse>({
     queryKey: ["treasures"],
     queryFn: async () => {
@@ -74,28 +75,32 @@ export function useTreasures() {
     },
   });
 
+  // 生成6位随机数验证码
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // 创建宝藏
   const createTreasure = useMutation({
     mutationFn: async (input: CreateTreasureInput) => {
+      const verification_code = generateVerificationCode();
       const variables = {
         object: {
-          name: input.name,
-          description: input.description,
-          points: input.points,
-          hint: input.hint,
-          latitude: input.latitude,
-          longitude: input.longitude,
+          ...input,
+          verification_code,
+          creator_id: profile?.id,
           status: 'ACTIVE',
-          image_url: input.image_url 
         }
       };
-
       return graphqlClient.request(CREATE_TREASURE, variables);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
+      queryClient.invalidateQueries({ queryKey: ["userPlacements"] });
     },
   });
 
+  // 更新宝藏
   const updateTreasure = useMutation({
     mutationFn: ({
       id,
@@ -110,6 +115,7 @@ export function useTreasures() {
     },
   });
 
+  // 删除宝藏
   const deleteTreasure = useMutation({
     mutationFn: (id: string) => graphqlClient.request(DELETE_TREASURE, { id }),
     onSuccess: () => {
@@ -117,12 +123,54 @@ export function useTreasures() {
     },
   });
 
+  // 验证宝藏
+  const verifyTreasure = useMutation({
+    mutationFn: async ({ id, verification_code }: VerifyTreasureInput) => {
+      if (!profile?.id) throw new Error('User not logged in');
+      
+      return graphqlClient.request(VERIFY_TREASURE, {
+        id,
+        verification_code,
+        finder_id: profile.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["treasures"] });
+      queryClient.invalidateQueries({ queryKey: ["userFindings"] });
+    },
+  });
+
+  // 获取用户放置的宝藏
+  const userPlacements = useQuery<UserPlacementsResponse>({
+    queryKey: ["userPlacements", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) throw new Error('User not logged in');
+      return graphqlClient.request(GET_USER_PLACEMENTS, { creator_id: profile.id });
+    },
+    enabled: !!profile?.id,
+  });
+
+  // 获取用户找到的宝藏
+  const userFindings = useQuery<UserFindingsResponse>({
+    queryKey: ["userFindings", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) throw new Error('User not logged in');
+      return graphqlClient.request(GET_USER_FINDINGS, { finder_id: profile.id });
+    },
+    enabled: !!profile?.id,
+  });
+
   return {
-    treasures: data?.treasures,
+    treasures: data?.treasures || [],
+    userPlacements: userPlacements.data?.treasures || [],
+    userFindings: userFindings.data?.treasures || [],
     isLoading,
     error,
     createTreasure,
+    verifyTreasure,
     updateTreasure,
     deleteTreasure,
   };
 }
+
+export type { Treasure };

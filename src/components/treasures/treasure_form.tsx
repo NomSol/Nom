@@ -8,13 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload } from 'lucide-react';
 import Image from 'next/image';
 import { uploadTreasureImage } from '@/lib/supabase';
-import { useIPFS } from '@/hooks/use-ipfs';
-import { Switch } from '@/components/ui/switch';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 
 interface TreasureFormProps {
-  initialData?: Treasure;
+  initialData?: Partial<Treasure>;
   onSubmit: (data: CreateTreasureInput) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -22,10 +20,6 @@ interface TreasureFormProps {
 
 export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: TreasureFormProps) {
   const router = useRouter();
-  const { uploadTreasure, isUploading: isIpfsUploading } = useIPFS();
-  const [useIpfs, setUseIpfs] = useState(false);
-  const [currentImageFile, setCurrentImageFile] = useState<File | null>(null);
-
   const [formData, setFormData] = useState<CreateTreasureInput>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -34,8 +28,6 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
     latitude: initialData?.latitude || 0,
     longitude: initialData?.longitude || 0,
     image_url: initialData?.image_url || '',
-    ipfs_hash: initialData?.ipfs_hash || '',
-    ipfs_metadata_hash: initialData?.ipfs_metadata_hash || ''
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null);
@@ -47,7 +39,6 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
 
     try {
       setUploading(true);
-      setCurrentImageFile(file);
 
       // 创建预览
       const reader = new FileReader();
@@ -56,65 +47,41 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
       };
       reader.readAsDataURL(file);
 
-      // 无论是否使用 IPFS，都先上传到 Supabase
+      // 上传到 Supabase
       const supabaseUrl = await uploadTreasureImage(file);
       setFormData(prev => ({
         ...prev,
-        image_url: supabaseUrl  // 设置 Supabase URL
+        image_url: supabaseUrl
       }));
 
     } catch (error) {
       console.error('Upload failed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload image',
+        variant: 'destructive'
+      });
     } finally {
       setUploading(false);
     }
-};
+  };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  try {
-    if (useIpfs && currentImageFile) {
-      console.log('Starting IPFS upload...', currentImageFile);
-      
-      // 1. 上传到 IPFS
-      const ipfsResult = await uploadTreasure(currentImageFile, {
-        name: formData.name,
-        description: formData.description,
-        points: formData.points,
-        hint: formData.hint,
-        latitude: formData.latitude,
-        longitude: formData.longitude
-      });
-      
-      console.log('IPFS upload result:', ipfsResult);
-
-      const finalData = {
-        ...formData,
-        ipfs_hash: ipfsResult.imageCid,
-        ipfs_metadata_hash: ipfsResult.metadataCid
-      };
-
-      // 2. 提交表单并立即返回
-      await onSubmit(finalData);
-      router.back();
-    } else {
-      // 不使用 IPFS 时，提交并返回
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
       await onSubmit(formData);
-      router.back();
+    } catch (error) {
+      console.error('Submit failed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create treasure',
+        variant: 'destructive'
+      });
     }
-  } catch (error) {
-    console.error('Submit failed:', error);
-    // 显示错误提示
-    toast({
-      title: 'Error',
-      description: 'Failed to create treasure',
-      variant: 'destructive'
-    });
-  }
-};
+  };
 
-  const isProcessing = isLoading || uploading || (useIpfs && isIpfsUploading);
+  const isProcessing = isLoading || uploading;
 
   return (
     <Card>
@@ -125,16 +92,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* IPFS 开关 */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Use IPFS Storage</label>
-            <Switch
-              checked={useIpfs}
-              onCheckedChange={setUseIpfs}
-              disabled={isProcessing}
-            />
-          </div>
-
           {/* 图片上传部分 */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Image</label>
@@ -171,11 +128,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     />
                   </label>
                 </Button>
-                {useIpfs && formData.ipfs_hash && (
-                  <p className="text-sm text-gray-500">
-                    IPFS Hash: {formData.ipfs_hash.slice(0, 10)}...
-                  </p>
-                )}
               </div>
             </Card>
           </div>

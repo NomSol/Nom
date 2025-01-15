@@ -38,66 +38,52 @@ export default function CreateTreasurePage() {
     latitude: latitude,
     longitude: longitude,
     image_url: "",
-    // ipfs_hash: "",
-    // ipfs_metadata_hash: "",
     status: "ACTIVE",
     created_at: new Date().toISOString(),
+    likes_count: 0,
+    verification_code: ""
   };
+
+  interface CreateTreasureResponse {
+    insert_treasures_one: {
+      id: string;
+      name: string;
+      verification_code: string;
+    };
+  }
 
   const handleSubmit = async (data: CreateTreasureInput) => {
     try {
-      const tempTreasure: Treasure = {
-        id: `temp-${Date.now()}`,
-        ...data,
-        status: "ACTIVE",
-        created_at: new Date().toISOString(),
-        points: Number(data.points),
-        latitude: Number(data.latitude),
-        longitude: Number(data.longitude),
-      };
-
-      // 立即更新缓存数据（添加临时宝藏条目）
-      queryClient.setQueryData<TreasuresData>(["treasures"], (old) => {
-        return {
-          treasures: [...(old?.treasures ?? []), tempTreasure],
-        };
-      });
-
       // 显示创建中的提示
       toast({
         title: "提示",
         description: "宝藏创建中...",
       });
-
-      // 执行实际的创建操作（调用API）
-      await createTreasure.mutateAsync({
+  
+      // 添加类型断言
+      const result = await createTreasure.mutateAsync({
         ...data,
         status: "ACTIVE",
-      });
-
-      // 创建成功后的提示
-      toast({
-        title: "成功",
-        description: "宝藏创建成功",
-      });
-
-      // 使缓存失效以触发重新获取最新数据
+      }) as CreateTreasureResponse;
+  
+      // 创建成功后显示验证码
+      if (result.insert_treasures_one?.verification_code) {
+        toast({
+          title: "创建成功",
+          description: `请保存宝藏验证码：${result.insert_treasures_one.verification_code}`,
+          duration: 5000,
+        });
+      }
+  
+      // 使缓存失效
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
-
-      // 创建完成后可以选择返回或留在本页
-      // router.back();
+  
+      // 延迟返回，让用户有时间记下验证码
+      setTimeout(() => {
+        router.back();
+      }, 5000);
     } catch (error) {
       console.error("Error creating treasure:", error);
-
-      // 创建失败时，从缓存中移除临时数据
-      queryClient.setQueryData<TreasuresData>(["treasures"], (old) => {
-        return {
-          treasures: (old?.treasures ?? []).filter(
-            (t: Treasure) => !t.id.startsWith("temp-")
-          ),
-        };
-      });
-
       toast({
         title: "错误",
         description: "创建宝藏失败",
