@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { User } from '@/types/user';
+import { UserProfile } from '@/types/user';
 import { UserProfileInput } from '@/types/user';
 
 export function useUserProfile(p0?: { enabled?: boolean; }) {
@@ -38,7 +38,7 @@ export function useUserProfile(p0?: { enabled?: boolean; }) {
                 throw new Error('No user profile found');
             }
             console.log("11111111111111111111111111111", data.users[0]);
-            return data.users[0] as User; // 返回用户数据
+            return data.users[0] as UserProfile; // 返回用户数据
 
         },
         enabled: !!email, // 只在有 email 时执行查询
