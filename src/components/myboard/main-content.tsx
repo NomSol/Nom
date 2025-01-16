@@ -1,9 +1,21 @@
 "use client";
 
 import { useUserProfile } from '@/hooks/use-user';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 export function MainContent() {
-    const { profile, isLoading, error } = useUserProfile();
+    const router = useRouter();
+    const pathname = usePathname() ?? "";
+    const { profile, isLoading, error, refetch } = useUserProfile({ enabled: true });
+
+    // 监听路由返回并刷新数据
+    useEffect(() => {
+        if (pathname === '/dashboard') { // 替换为实际路径
+            refetch(); // 强制刷新用户数据
+        }
+    }, [router, refetch]);
+
 
     if (error) {
         return (
@@ -58,6 +70,12 @@ export function MainContent() {
                 <div className="user-created text-gray-500 text-sm mt-4">
                     加入时间：{new Date(profile.created_at).toLocaleDateString()}
                 </div>
+            </div>
+
+            <div className='flex items-center ml-10'>
+                <button className="btn btn-primary"
+                    onClick={() => router.push('/settings')}
+                >Setting</button>
             </div>
         </div>
     );

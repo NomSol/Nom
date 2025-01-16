@@ -1,3 +1,4 @@
+// types/treasure.ts
 export interface Treasure {
   id: string;
   name: string;
@@ -10,8 +11,10 @@ export interface Treasure {
   image_url?: string;
   created_at: string;
   updated_at?: string;
-  ipfs_hash?: string;
-  ipfs_metadata_hash?: string;
+  creator_id?: string;
+  finder_id?: string;
+  verification_code: string;
+  likes_count: number;
 }
 
 export interface CreateTreasureInput {
@@ -23,6 +26,10 @@ export interface CreateTreasureInput {
   longitude: number;
   status?: string;
   image_url?: string;
-  ipfs_hash?: string;
-  ipfs_metadata_hash?: string; 
+}
+
+export interface VerifyTreasureInput {
+  id: string;
+  verification_code: string;
+  finder_id: string;
 }

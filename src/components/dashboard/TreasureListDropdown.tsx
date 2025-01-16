@@ -78,6 +78,7 @@ export function TreasureListDropdown() {
 
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
 
     const normalizedLat = normalizeLatitude(lat);
     const normalizedLng = normalizeLongitude(lng);

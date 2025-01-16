@@ -1,20 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash } from 'lucide-react';
+import { Check, Edit, Heart, Trash } from 'lucide-react';
 import Image from 'next/image';
+import { useSession } from 'next-auth/react';
+import { useUserProfile } from '@/hooks/use-user';
+import { useLikes } from '@/hooks/use-likes';
+import { Treasure } from '@/types/treasure';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { VerifyTreasureDialog } from './verify-dialog';
 
-export interface Treasure {
-  id: string;
-  name: string;
-  description: string;
-  points: number;
-  hint: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  image_url?: string;
-  created_at: string;
-}
 
 interface TreasureCardProps {
   treasure: Treasure;
@@ -23,9 +18,47 @@ interface TreasureCardProps {
 }
 
 export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) {
+  const { data: session } = useSession();
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { isLiked, likeTreasure, unlikeTreasure } = useLikes();
+  const liked = isLiked(treasure.id);
+  // Check if this treasure is created by the current user
+  const isCreator = treasure.creator_id === profile?.id;
+  // Check if this treasure is already found by the current user
+  const isFound = treasure.finder_id === profile?.id;
+
+  console.log('TreasureCard render:', {
+    treasureId: treasure.id,
+    liked,
+    hasProfile: !!profile,
+    cathId: profile?.cath_id,
+    likesCount: treasure.likes_count
+  });
+
+  const handleLikeClick = async () => {
+    if (!profile?.id) {
+      console.log('No profile or cath_id found, cannot like/unlike');
+      return;
+    }
+    
+    try {
+      console.log('Attempting to', liked ? 'unlike' : 'like', 'treasure:', treasure.id);
+      
+      if (liked) {
+        const result = await unlikeTreasure.mutateAsync(treasure.id);
+        console.log('Unlike result:', result);
+      } else {
+        const result = await likeTreasure.mutateAsync(treasure.id);
+        console.log('Like result:', result);
+      }
+    } catch (error) {
+      console.error('Failed to update like status:', error);
+    }
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
-      {/* 添加图片部分 */}
       {treasure.image_url && (
         <div className="relative w-full h-48">
           <Image
@@ -41,6 +74,23 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg font-bold">{treasure.name}</CardTitle>
         <div className="flex space-x-2">
+            <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLikeClick}
+            disabled={!profile?.id}
+            className="relative"
+          >
+            <Heart
+              className={cn(
+                "h-4 w-4 transition-colors",
+                liked ? "fill-red-500 text-red-500" : "text-gray-500"
+              )}
+            />
+            <span className="absolute -bottom-4 text-xs">
+              {treasure.likes_count || 0}
+            </span>
+          </Button>
           {onEdit && (
             <Button variant="ghost" size="icon" onClick={() => onEdit(treasure)}>
               <Edit className="h-4 w-4" />
@@ -53,6 +103,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
           )}
         </div>
       </CardHeader>
+
       <CardContent>
         <p className="text-sm text-gray-500 mb-4">{treasure.description}</p>
         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -60,37 +111,32 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
           <div>Status: {treasure.status}</div>
           <div>Lat: {treasure.latitude.toFixed(6)}</div>
           <div>Long: {treasure.longitude.toFixed(6)}</div>
+          
+          {/* Add verify button if not creator and not found */}
+          {!isCreator && !isFound && (
+            <Button 
+              className="col-span-2 mt-2"
+              onClick={() => setVerifyDialogOpen(true)}
+            >
+              验证宝藏
+            </Button>
+          )}
+          
+          {/* Show found status if found */}
+          {isFound && (
+            <div className="col-span-2 flex items-center justify-center gap-2 text-green-600">
+              <Check className="w-4 h-4" />
+              <span>已找到</span>
+            </div>
+          )}
         </div>
       </CardContent>
+
+      <VerifyTreasureDialog
+        treasureId={treasure.id}
+        isOpen={verifyDialogOpen}
+        onClose={() => setVerifyDialogOpen(false)}
+      />
     </Card>
-  );
-}
-
-interface TreasureListProps {
-  treasures: Treasure[];
-  onEdit?: (treasure: Treasure) => void;
-  onDelete?: (id: string) => void;
-}
-
-export function TreasureList({ treasures, onEdit, onDelete }: TreasureListProps) {
-  if (treasures.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        No treasures found
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {treasures.map((treasure) => (
-        <TreasureCard
-          key={treasure.id}
-          treasure={treasure}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ))}
-    </div>
   );
 }
