@@ -1,4 +1,6 @@
-import { TreasureCard, Treasure } from './treasure_card';
+import { TreasureCard } from './treasure_card';
+import {Treasure} from "@/types/treasure";
+
 
 interface TreasureListProps {
   treasures: Treasure[];
