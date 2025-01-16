@@ -1,4 +1,3 @@
-
 name: Deploy to AWS Fargate
 
 on:
@@ -32,17 +31,26 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE_TAG=$(date +%s)
-          REPOSITORY_URI="123456789012.dkr.ecr.us-east-1.amazonaws.com/nextjs-repo"
+          REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
           docker build -t $REPOSITORY_URI:$IMAGE_TAG .
           docker push $REPOSITORY_URI:$IMAGE_TAG
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
 
       # Step 5: Deploy to ECS
       - name: Deploy to ECS
         run: |
-          CLUSTER_NAME="nextjs-cluster"
-          SERVICE_NAME="nextjs-service"
-          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition nextjs-task)
-          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition.containerDefinitions[0].image = $IMAGE')
+          CLUSTER_NAME="treasure-hunt-cluster"
+          SERVICE_NAME="treasure-hunt-service"
+
+          # Fetch the existing task definition
+          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task)
+
+          # Update the container image in the task definition
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .taskDefinitionArn, .revision)')
+
+          # Register the new task definition
           echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
+
+          # Update the ECS service to use the new task definition
           aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
