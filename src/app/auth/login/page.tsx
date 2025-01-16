@@ -1,7 +1,6 @@
 import { LoginForm } from '@/components/features/auth/login-form'
-import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
@@ -13,3 +12,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
+export default LoginPage

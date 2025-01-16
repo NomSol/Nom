@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { ApiError } from '@/services/api';
 
 interface UseApiOptions<T> {
   onSuccess?: (data: T) => void;

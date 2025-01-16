@@ -1,0 +1,58 @@
+name: Deploy to AWS Fargate
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Configure AWS credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 4: Build and Push Docker Image to ECR
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG=$(date +%s)
+          REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
+          docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+          docker push $REPOSITORY_URI:$IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
+
+      # Step 5: Deploy to ECS
+      - name: Deploy to ECS
+        run: |
+          CLUSTER_NAME="treasure-hunt-cluster"
+          SERVICE_NAME="treasure-hunt-service"
+
+          # Fetch the existing task definition
+          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task)
+
+          # Update the container image in the task definition
+          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .taskDefinitionArn, .revision)')
+
+          # Register the new task definition
+          echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
+
+          # Update the ECS service to use the new task definition
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment

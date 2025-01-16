@@ -1,4 +1,6 @@
-// components/Protect.tsx
+
+"use client";
+
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { redirect, usePathname } from 'next/navigation';
@@ -8,7 +10,7 @@ import { useUserProfile } from '@/hooks/use-user'; // 用户信息的自定义 H
 let hasCheckedUserProfile = false; // 使用上下文或状态管理工具可更安全
 
 
-export function ProtectPage({ children }: { children: React.ReactNode }) {
+export default function ProtectPage({ children }: { children: React.ReactNode }) {
     const { data: session, status } = useSession();
     const pathname = usePathname() ?? "";
     const unprotectedPaths = ['/auth/login', '/auth/register', '/'];
@@ -67,7 +69,7 @@ export function ProtectPage({ children }: { children: React.ReactNode }) {
 
     // 如果组件未准备好，返回 null，避免渲染内容
     if (!isReady || status === 'loading') {
-        return <></>; // 或者可以显示一个加载指示
+        return <>Loading..</>; // 或者可以显示一个加载指示
     }
 
     // 如果用户信息不存在，跳转到设置页面

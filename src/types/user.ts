@@ -1,5 +1,5 @@
 // src/types/user.ts
-export interface UserProfile {
+export interface User {
   id: string;
   nickname: string;
   avatar_url: string;

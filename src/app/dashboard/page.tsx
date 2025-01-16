@@ -9,7 +9,7 @@ import { TabComponent } from "@/components/myboard/tab";
 import LoadingProfile from '@/components/myboard/loading-profile';
 import LoadingTabs from '@/components/myboard/loading-tabs';
 
-export default async function DashboardPage() {
+function DashboardPage() {
     return (
         <div className="min-h-screen">
             <SidebarProvider>
@@ -48,3 +48,5 @@ export default async function DashboardPage() {
         </div>
     );
 }
+
+export default DashboardPage;

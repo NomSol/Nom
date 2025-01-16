@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react';
 import { UserProfile } from '@/types/user';
 import { UserProfileInput } from '@/types/user';
 
-export function useUserProfile(p0: { enabled: boolean; }) {
+export function useUserProfile(p0?: { enabled?: boolean; }) {
     const { data: session } = useSession();
     const email = session?.user?.email;
 
