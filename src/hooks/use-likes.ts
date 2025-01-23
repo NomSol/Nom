@@ -31,8 +31,8 @@ export function useLikes() {
     queryKey: ['userLikes', profile?.id],
     queryFn: async () => {
       if (!profile?.id) throw new Error('No user ID found');
-      const response = await graphqlClient.request<UserLikesResponse>(GET_USER_LIKES, { 
-        user_id: profile.id 
+      const response = await graphqlClient.request<UserLikesResponse>(GET_USER_LIKES, {
+        user_id: profile.id
       });
       return response;
     },
