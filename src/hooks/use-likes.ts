@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 // hooks/use-likes.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
@@ -152,33 +151,4 @@ export function useLikes() {
     unlikeTreasure,
     userLikes,
   };
-=======
-"use client";
-
-import { useTreasures } from './use-treasure';
-
-export interface Like {
-    id: string;
-    name: string;
-    description: string;
-    image_url?: string;
-    author: string;
-    liked_at: string;
-    status: string;
-}
-
-export function useLikes() {
-    const { treasures, isLoading, error } = useTreasures();
-
-    // 过滤出状态为 "liked" 的宝藏作为点赞
-    const likes = treasures?.filter(treasure =>
-        treasure.status === "liked"
-    );
-
-    return {
-        likes,
-        isLoading,
-        error,
-    };
->>>>>>> Stashed changes
 }
