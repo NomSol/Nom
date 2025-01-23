@@ -66,22 +66,27 @@ jobs:
         run: |
           CLUSTER_NAME="treasure-hunt-cluster"
           SERVICE_NAME="treasure-hunt-service"
-
+          
           echo "Fetching existing task definition..."
-          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task)
-
+          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task | jq -r '.taskDefinition')
+          
           echo "Updating container image in the task definition..."
-          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .taskDefinitionArn, .revision)')
-
+          UPDATED_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '
+            del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities) |
+            .containerDefinitions[0].image = $IMAGE
+          ')
+          
+          echo "Saving updated task definition to temporary file..."
+          echo "$UPDATED_TASK_DEFINITION" > updated-task-definition.json
+          
           echo "Registering new task definition..."
-          echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
-
-          echo "Forcing ECS service to deploy the new task definition..."
+          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
+          
+          echo "Updating ECS service with the new task definition..."
           aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           REPOSITORY_URI: ${{ env.REPOSITORY_URI }}
-
       # Step 8: ECS Service Debugging
       - name: ECS Service Debugging
         run: |
