@@ -4,15 +4,11 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if exists) and install dependencies
-COPY package*.json ./
-
-# Install dependencies with a clean environment
-RUN npm ci --legacy-peer-deps
-
-# Install additional dev dependencies if needed
-RUN npm install --save-dev @typescript-eslint/eslint-plugin @typescript-eslint/parser
-
+# Copy package.json and install dependencies
+COPY package.json ./
+# Install dependencies with legacy-peer-deps
+RUN npm install --legacy-peer-deps
+RUN npm install --save-dev @typescript-eslint/eslint-plugin @typescript-eslint/parser --legacy-peer-deps
 # Copy the rest of the application
 COPY . .
 
