@@ -16,8 +16,15 @@ RUN npm install --save-dev @typescript-eslint/eslint-plugin @typescript-eslint/p
 COPY . .
 
 # Copy .env from S3 during the build
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
 ARG AWS_REGION
 ARG S3_BUCKET_NAME
+
+# Configure AWS CLI
+RUN aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && \
+    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY && \
+    aws configure set region $AWS_REGION
 RUN aws s3 cp s3://$S3_BUCKET_NAME/.env /app/.env --region $AWS_REGION
 
 # Build the Next.js app
