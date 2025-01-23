@@ -2,11 +2,14 @@
 FROM node:18-alpine
 
 # Install AWS CLI
-RUN apk add --no-cache python3 py3-pip unzip curl && \
+RUN apk add --no-cache python3 py3-pip curl unzip && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
     rm -rf awscliv2.zip aws
+
+# Verify AWS CLI installation
+RUN aws --version
 
 # Set working directory
 WORKDIR /app
@@ -28,6 +31,8 @@ ENV AWS_REGION=${AWS_REGION}
 ENV S3_BUCKET_NAME=${S3_BUCKET_NAME}
 ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+# Debug environment
+RUN echo "Environment Variables:" && env
 
 # Configure AWS CLI
 RUN aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && \

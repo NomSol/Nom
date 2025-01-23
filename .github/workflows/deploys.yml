@@ -89,15 +89,3 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           REPOSITORY_URI: ${{ env.REPOSITORY_URI }}
-      # Step 8: ECS Service Debugging
-      - name: ECS Service Debugging
-        run: |
-          echo "Fetching ECS service details..."
-          aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME"
-          echo "Checking ECS task health..."
-          TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER_NAME" --service-name "$SERVICE_NAME" --desired-status RUNNING | jq -r '.taskArns[0]')
-          echo "Describing ECS task: $TASK_ARN"
-          aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN"
-        env:
-          CLUSTER_NAME: treasure-hunt-cluster
-          SERVICE_NAME: treasure-hunt-service
