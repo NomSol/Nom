@@ -1,16 +1,8 @@
 # Use Node.js as the base image
 FROM node:18-alpine
 
-# Install required packages and AWS CLI
-RUN apk add --no-cache python3 py3-pip curl unzip && \
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws && \
-    ln -s /usr/local/bin/aws /bin/aws
-
-# Verify AWS CLI installation
-RUN /usr/local/bin/aws --version
+# Install AWS CLI
+RUN apk add --no-cache python3 py3-pip aws-cli
 
 # Set working directory
 WORKDIR /app
@@ -39,7 +31,7 @@ RUN echo "Environment Variables:" && env
 RUN aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && \
     aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY && \
     aws configure set region $AWS_REGION
-RUN /usr/local/bin/aws s3 cp s3://$S3_BUCKET_NAME/.env /app/.env --region $AWS_REGION
+RUN aws s3 cp s3://$S3_BUCKET_NAME/.env /app/.env --region $AWS_REGION
 
 # Build the Next.js app
 RUN npm run build
