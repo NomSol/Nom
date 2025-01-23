@@ -2,8 +2,7 @@
 FROM node:18-alpine
 
 # Install AWS CLI
-RUN apk add --no-cache python3 py3-pip
-RUN pip install --no-cache-dir awscli
+RUN apk add --no-cache python3 py3-pip aws-cli
 
 # Set working directory
 WORKDIR /app
