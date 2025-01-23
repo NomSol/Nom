@@ -2,7 +2,11 @@
 FROM node:18-alpine
 
 # Install AWS CLI
-RUN apk add --no-cache python3 py3-pip aws-cli
+RUN apk add --no-cache python3 py3-pip unzip curl && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
 
 # Set working directory
 WORKDIR /app
@@ -15,11 +19,15 @@ RUN npm install --save-dev @typescript-eslint/eslint-plugin @typescript-eslint/p
 # Copy the rest of the application
 COPY . .
 
-# Copy .env from S3 during the build
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_SECRET_ACCESS_KEY
+# Add environment variables for the S3 bucket and AWS region
 ARG AWS_REGION
 ARG S3_BUCKET_NAME
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
+ENV AWS_REGION=${AWS_REGION}
+ENV S3_BUCKET_NAME=${S3_BUCKET_NAME}
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 # Configure AWS CLI
 RUN aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && \
