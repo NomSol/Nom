@@ -29,30 +29,62 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Step 4: Build and Push Docker Image to ECR
+      # Step 4: Debugging AWS CLI setup
+      - name: Debug AWS CLI Setup
+        run: |
+          echo "Checking AWS CLI version..."
+          aws --version
+          echo "Listing ECR repositories..."
+          aws ecr describe-repositories --region ap-southeast-2
+
+      # Step 5: Build and Push Docker Image to ECR
       - name: Build and Push Docker Image
         run: |
           IMAGE_TAG=$(date +%s)
           REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
+          echo "Building Docker image with tag: $REPOSITORY_URI:$IMAGE_TAG"
           docker build -t $REPOSITORY_URI:$IMAGE_TAG .
+          echo "Pushing Docker image to ECR..."
           docker push $REPOSITORY_URI:$IMAGE_TAG
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
+        # Debug steps to verify Docker setup
+        continue-on-error: true
 
-      # Step 5: Deploy to ECS
+      # Step 6: Debug Docker images
+      - name: Debug Docker Images
+        run: |
+          echo "Listing local Docker images..."
+          docker images
+
+      # Step 7: Deploy to ECS
       - name: Deploy to ECS
         run: |
           CLUSTER_NAME="treasure-hunt-cluster"
           SERVICE_NAME="treasure-hunt-service"
 
-          # Fetch the existing task definition
+          echo "Fetching existing task definition..."
           TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task)
 
-          # Update the container image in the task definition
+          echo "Updating container image in the task definition..."
           NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .taskDefinitionArn, .revision)')
 
-          # Register the new task definition
+          echo "Registering new task definition..."
           echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
 
-          # Update the ECS service to use the new task definition
+          echo "Forcing ECS service to deploy the new task definition..."
           aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          REPOSITORY_URI: ${{ env.REPOSITORY_URI }}
+
+      # Step 8: ECS Service Debugging
+      - name: ECS Service Debugging
+        run: |
+          echo "Fetching ECS service details..."
+          aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME
+          echo "Checking ECS task health..."
+          aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME --desired-status RUNNING
+          TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME --desired-status RUNNING | jq -r '.taskArns[0]')
+          echo "Describing ECS task: $TASK_ARN"
+          aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ARN
