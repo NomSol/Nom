@@ -12,16 +12,16 @@ import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 
 interface TreasureFormProps {
-  initialData?: Partial<Treasure>;
-  onSubmit: (data: CreateTreasureInput) => void;
-  onCancel: () => void;
-  isLoading?: boolean;
+  initialData?: Partial<Treasure>; // Optional initial data for editing
+  onSubmit: (data: CreateTreasureInput) => void; // Function to handle form submission
+  onCancel: () => void; // Function to handle cancel action
+  isLoading?: boolean; // Loading state for form submission
 }
 
 export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: TreasureFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<CreateTreasureInput>({
-    name: initialData?.name || '',
+    name: initialData?.name || '', // Initialize form data with initial values or defaults
     description: initialData?.description || '',
     points: initialData?.points || 0,
     hint: initialData?.hint || '',
@@ -30,9 +30,10 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
     image_url: initialData?.image_url || '',
   });
 
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null);
-  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null); // State for image preview
+  const [uploading, setUploading] = useState(false); // State for image upload loading
 
+  // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -40,18 +41,18 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
     try {
       setUploading(true);
 
-      // 创建预览
+      // Create image preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
 
-      // 上传到 Supabase
+      // Upload image to Supabase
       const supabaseUrl = await uploadTreasureImage(file);
       setFormData(prev => ({
         ...prev,
-        image_url: supabaseUrl
+        image_url: supabaseUrl, // Update form data with the uploaded image URL
       }));
 
     } catch (error) {
@@ -59,29 +60,30 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
       toast({
         title: 'Error',
         description: 'Failed to upload image',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setUploading(false);
     }
   };
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
-      await onSubmit(formData);
+      await onSubmit(formData); // Call the onSubmit function with form data
     } catch (error) {
       console.error('Submit failed:', error);
       toast({
         title: 'Error',
         description: 'Failed to create treasure',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };
 
-  const isProcessing = isLoading || uploading;
+  const isProcessing = isLoading || uploading; // Combined loading state for form submission and image upload
 
   return (
     <Card>
@@ -92,7 +94,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 图片上传部分 */}
+          {/* Image upload section */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Image</label>
             <Card className="p-4">
@@ -132,7 +134,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             </Card>
           </div>
 
-          {/* 名称字段 */}
+          {/* Name field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Name</label>
             <Input
@@ -143,7 +145,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             />
           </div>
 
-          {/* 描述字段 */}
+          {/* Description field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
             <Textarea
@@ -154,7 +156,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             />
           </div>
 
-          {/* 积分字段 */}
+          {/* Points field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Points</label>
             <Input
@@ -166,7 +168,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             />
           </div>
 
-          {/* 提示字段 */}
+          {/* Hint field */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Hint</label>
             <Input
@@ -177,7 +179,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             />
           </div>
 
-          {/* 经纬度字段 */}
+          {/* Latitude and Longitude fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Latitude</label>
@@ -201,7 +203,7 @@ export function TreasureForm({ initialData, onSubmit, onCancel, isLoading }: Tre
             </div>
           </div>
 
-          {/* 操作按钮 */}
+          {/* Action buttons */}
           <div className="flex justify-end space-x-4 pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel

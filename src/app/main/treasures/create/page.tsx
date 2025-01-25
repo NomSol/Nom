@@ -10,25 +10,22 @@ import {
 import { useToast } from "@/components/ui/toaster";
 import { useQueryClient } from "@tanstack/react-query";
 
-type TreasuresData = {
-  treasures: Treasure[];
-};
-
 export default function CreateTreasurePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { createTreasure } = useTreasures();
   const queryClient = useQueryClient();
 
-  // 从URL参数中获取经纬度
+  // Get latitude and longitude from URL parameters
   const searchParams = useSearchParams();
   const latParam = searchParams ? searchParams.get("lat") : null;
   const lngParam = searchParams ? searchParams.get("lng") : null;
 
+  // Parse latitude and longitude, default to 0 if not provided
   const latitude = latParam ? parseFloat(latParam) : 0;
   const longitude = lngParam ? parseFloat(lngParam) : 0;
 
-  // 将初始数据传入 TreasureForm，包括 latitude 和 longitude
+  // Initial data to pass to TreasureForm, including latitude and longitude
   const initialData: Treasure = {
     id: "",
     name: "",
@@ -52,41 +49,43 @@ export default function CreateTreasurePage() {
     };
   }
 
+  // Handle the treasure creation form submission
   const handleSubmit = async (data: CreateTreasureInput) => {
     try {
-      // 显示创建中的提示
+      // Show a toast indicating that treasure creation is in progress
       toast({
-        title: "提示",
-        description: "宝藏创建中...",
+        title: "Notice",
+        description: "Treasure is being created...",
       });
   
-      // 添加类型断言
+      // Add type assertion for the result of the treasure creation
       const result = await createTreasure.mutateAsync({
         ...data,
         status: "ACTIVE",
       }) as CreateTreasureResponse;
   
-      // 创建成功后显示验证码
+      // If creation is successful, show the verification code
       if (result.insert_treasures_one?.verification_code) {
         toast({
-          title: "创建成功",
-          description: `请保存宝藏验证码：${result.insert_treasures_one.verification_code}`,
+          title: "Creation Successful",
+          description: `Please save the treasure verification code: ${result.insert_treasures_one.verification_code}`,
           duration: 5000,
         });
       }
   
-      // 使缓存失效
+      // Invalidate the cache to update treasure data
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
   
-      // 延迟返回，让用户有时间记下验证码
+      // Delay returning to the previous page to give the user time to note down the verification code
       setTimeout(() => {
         router.back();
       }, 5000);
     } catch (error) {
       console.error("Error creating treasure:", error);
+      // Show an error toast if creation fails
       toast({
-        title: "错误",
-        description: "创建宝藏失败",
+        title: "Error",
+        description: "Failed to create treasure",
         variant: "destructive",
       });
     }
@@ -94,12 +93,12 @@ export default function CreateTreasurePage() {
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
-      <h1 className="text-3xl font-bold mb-6">创建新宝藏</h1>
+      <h1 className="text-3xl font-bold mb-6">Create New Treasure</h1>
       <TreasureForm
-        initialData={initialData} // 将初始数据传入表单
+        initialData={initialData} // Pass the initial data to the form
         onSubmit={handleSubmit}
-        onCancel={() => router.back()}
-        isLoading={createTreasure.isPending}
+        onCancel={() => router.back()} // Go back to the previous page on cancel
+        isLoading={createTreasure.isPending} // Show loading state while the treasure is being created
       />
     </div>
   );
