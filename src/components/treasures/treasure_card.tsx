@@ -118,7 +118,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
               className="col-span-2 mt-2"
               onClick={() => setVerifyDialogOpen(true)}
             >
-              验证宝藏
+              Verify the treasure
             </Button>
           )}
           
@@ -126,7 +126,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
           {isFound && (
             <div className="col-span-2 flex items-center justify-center gap-2 text-green-600">
               <Check className="w-4 h-4" />
-              <span>已找到</span>
+              <span>Found</span>
             </div>
           )}
         </div>
