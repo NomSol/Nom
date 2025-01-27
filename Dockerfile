@@ -2,7 +2,13 @@
 FROM node:18-alpine
 
 # Install AWS CLI
-RUN apk add --no-cache python3 py3-pip aws-cli
+RUN apk add --no-cache curl python3 py3-pip && \
+    pip install --break-system-packages awscli && \
+    aws --version
+
+
+# Verify AWS CLI installation
+RUN aws --version
 
 # Set working directory
 WORKDIR /app
@@ -32,12 +38,11 @@ RUN aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && \
     aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY && \
     aws configure set region $AWS_REGION
 RUN aws s3 cp s3://$S3_BUCKET_NAME/.env /app/.env --region $AWS_REGION
-
 # Build the Next.js app
 RUN npm run build
 
 # Expose the default Next.js port
-EXPOSE 3000
 
 # Start the Next.js app
-CMD ["npm", "start"]
+CMD ["sh", "-c", "aws s3 cp s3://treasure-hunt-env-bucket/.env /app/.env && npm start"]
+EXPOSE 3000
