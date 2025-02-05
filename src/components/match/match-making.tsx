@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user';
@@ -19,12 +18,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import MatchDetail from './match-detail';
 
 const MatchMaking = () => {
   const router = useRouter();
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showMatchDetail, setShowMatchDetail] = useState<boolean>(false);
+  const [matchId, setMatchId] = useState<string | null>(null);
   const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch } = useMatchActions();
   const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(
     selectedSize ? `${selectedSize}v${selectedSize}` : ''
@@ -49,52 +51,54 @@ const MatchMaking = () => {
     );
   }
 
-    // Get current user's waiting match
-    const currentMatch = waitingMatches?.find(match =>
-      match.match_teams.some(team =>
-        team.match_members.some(member => member.user_id === profile?.id)
-      )
-    );
-  
-    // Check if the user is the creator
-    const isCreator = currentMatch?.match_teams.some(team =>
-      team.match_members.length > 0 &&
-      team.match_members[0].user_id === profile?.id
-    );
+  // Get current user's waiting match
+  const currentMatch = waitingMatches?.find(match =>
+    match.match_teams.some(team =>
+      team.match_members.some(member => member.user_id === profile?.id)
+    )
+  );
 
-    const handleCancelMatch = async () => {
-      if (!currentMatch || !profile) return;
-  
-      try {
-        if (isCreator) {
-          // If the user is the creator, delete the entire match
-          await deleteMatch.mutateAsync(currentMatch.id);
-        } else {
-          // If the user is a participant, just remove themselves
-          const team = currentMatch.match_teams.find(team =>
-            team.match_members.some(member => member.user_id === profile.id)
-          );
-          
-          if (team) {
-            await leaveMatch.mutateAsync({
-              match_id: currentMatch.id,
-              user_id: profile.id
-            });
-            
-            // Update team player count
-            await updateTeamPlayers.mutateAsync({
-              team_id: team.id,
-              current_players: team.current_players - 1
-            });
-          }
+  // Check if the user is the creator
+  const isCreator = currentMatch?.match_teams.some(team =>
+    team.match_members.length > 0 &&
+    team.match_members[0].user_id === profile?.id
+  );
+
+  const handleCancelMatch = async () => {
+    if (!currentMatch || !profile) return;
+
+    try {
+      if (isCreator) {
+        // If the user is the creator, delete the entire match
+        await deleteMatch.mutateAsync(currentMatch.id);
+      } else {
+        // If the user is a participant, just remove themselves
+        const team = currentMatch.match_teams.find(team =>
+          team.match_members.some(member => member.user_id === profile.id)
+        );
+
+        if (team) {
+          await leaveMatch.mutateAsync({
+            match_id: currentMatch.id,
+            user_id: profile.id
+          });
+
+          // Update team player count
+          await updateTeamPlayers.mutateAsync({
+            team_id: team.id,
+            current_players: team.current_players - 1
+          });
         }
-  
-        router.push('/main/match');
-      } catch (error) {
-        console.error('Failed to cancel match:', error);
-        setError('Failed to cancel match, please try again');
       }
-    };
+
+      setShowMatchDetail(false); // 取消比赛后隐藏 MatchDetail 组件
+      setMatchId(null); // 清空比赛 ID
+      router.push('/main/match');
+    } catch (error) {
+      console.error('Failed to cancel match:', error);
+      setError('Failed to cancel match, please try again');
+    }
+  };
 
   const handleMatchStart = async (size: number) => {
     try {
@@ -114,7 +118,7 @@ const MatchMaking = () => {
 
       // Find a match to join
       const availableMatch = waitingMatches?.find(match => {
-        return match.match_teams.some(team => 
+        return match.match_teams.some(team =>
           team.current_players < team.max_players &&
           !team.match_members.some(member => member.user_id === profile.id)
         );
@@ -123,8 +127,8 @@ const MatchMaking = () => {
       if (availableMatch) {
         // Find the team with the least number of players
         const teamToJoin = availableMatch.match_teams
-          .filter(team => team.current_players < team.max_players)
-          .sort((a, b) => a.current_players - b.current_players)[0];
+         .filter(team => team.current_players < team.max_players)
+         .sort((a, b) => a.current_players - b.current_players)[0];
 
         if (teamToJoin) {
           // Join the team
@@ -142,7 +146,8 @@ const MatchMaking = () => {
             current_players: teamToJoin.current_players + 1
           });
 
-          router.push(`/main/match/detail`);
+          setShowMatchDetail(true); // 显示 MatchDetail 组件
+          setMatchId(availableMatch.id); // 存储比赛 ID
         }
       } else {
         // Create a new match
@@ -155,7 +160,8 @@ const MatchMaking = () => {
         });
 
         if (result?.id) {
-          router.push('/main/match/detail');
+          setShowMatchDetail(true); // 显示 MatchDetail 组件
+          setMatchId(result.id); // 存储比赛 ID
         } else {
           throw new Error('Failed to create match');
         }
@@ -178,22 +184,22 @@ const MatchMaking = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           {currentMatch ? (
             <div className="space-y-4">
               <div className="text-center">
                 <h3 className="text-lg font-semibold mb-2">Currently Matching</h3>
                 <p className="text-gray-500">
-                  {currentMatch.match_type} - Waiting for players to join 
+                  {currentMatch.match_type} - Waiting for players to join
                   ({currentMatch.match_teams.reduce((sum, team) => sum + team.current_players, 0)}/
                   {currentMatch.match_teams.reduce((sum, team) => sum + team.max_players, 0)})
                 </p>
               </div>
-              
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     className="w-full"
                     disabled={leaveMatch.isPending || deleteMatch.isPending}
                   >
@@ -204,8 +210,8 @@ const MatchMaking = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Cancel Match?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {isCreator 
-                        ? 'As the creator, canceling will end the entire match' 
+                      {isCreator
+                       ? 'As the creator, canceling will end the entire match'
                         : 'You will exit the current match'
                       }
                     </AlertDialogDescription>
@@ -233,8 +239,8 @@ const MatchMaking = () => {
                     <div className="text-center">
                       <Users className="h-8 w-8 mb-2 mx-auto" />
                       <span className="block">{size} vs {size}</span>
-                      {waitingMatches?.some(m => 
-                        m.match_type === `${size}v${size}` && 
+                      {waitingMatches?.some(m =>
+                        m.match_type === `${size}v${size}` &&
                         m.match_teams.some(t => t.current_players < t.max_players)
                       ) && (
                         <span className="absolute bottom-2 left-0 right-0 text-xs text-green-500">
@@ -258,6 +264,7 @@ const MatchMaking = () => {
               </div>
             </>
           )}
+          {showMatchDetail && matchId && <MatchDetail matchId={matchId} />} {/* 根据状态显示 MatchDetail 组件 */}
         </div>
       </CardContent>
     </Card>
