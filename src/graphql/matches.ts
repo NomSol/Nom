@@ -233,3 +233,35 @@ export const DELETE_MATCH = gql`
     }
   }
 `;
+
+export const CHECK_EXISTING_MATCH = gql`
+  query CheckExistingMatch($userId: uuid!) {
+    treasure_matches(
+      where: {
+        status: { _eq: "matching" },
+        match_teams: {
+          match_members: {
+            user_id: { _eq: $userId }
+          }
+        }
+      }
+    ) {
+      id
+      match_type
+      status
+      start_time
+      end_time
+      required_players_per_team
+      match_teams {
+        id
+        team_number
+        current_players
+        max_players
+        match_members {
+          id
+          user_id
+        }
+      }
+    }
+  }
+`;
