@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user';
-import { useMatchActions, useWaitingMatches, useCurrentMatch, useCheckMatchStatus } from '@/hooks/use-match';
+import { useMatchActions, useWaitingMatches, useCurrentMatch, useCheckMatchStatus, useMatch } from '@/hooks/use-match';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,43 +28,65 @@ const MatchMaking = () => {
   const [error, setError] = useState<string | null>(null);
   const [isMatching, setIsMatching] = useState(false);
   const { currentMatchId, setCurrentMatch, clearCurrentMatch } = useCurrentMatch();
-  const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch } = useMatchActions();
+  const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch, checkExistingMatch, cancelMatch} = useMatchActions();
   
-  // 修改匹配类型的构造
   const matchType = !isMatching && selectedSize ? `${selectedSize}v${selectedSize}` : '';
   const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(matchType);
 
-  // 检查当前用户是否已在匹配中
-  const checkExistingMatch = useCallback(async () => {
-    if (!profile?.id || !waitingMatches) return;
+  // Get current match data
+  const { data: currentMatchData, isLoading: isLoadingMatch } = useMatch(currentMatchId || '');
 
-    const existingMatch = waitingMatches.find(match => 
-      Array.isArray(match.match_teams) && 
-      match.match_teams.some(team =>
-        Array.isArray(team.match_members) &&
-        team.match_members.some(member => member.user_id === profile.id)
-      )
-    );
+  // Check if user is already in a match
+  const verifyExistingMatch = useCallback(async () => {
+    if (!profile?.id) return false;
 
-    if (existingMatch) {
-      console.log('Found existing match:', existingMatch.id);
-      setIsMatching(true);
-      setCurrentMatch(existingMatch.id);
-      setSelectedSize(parseInt(existingMatch.match_type.split('v')[0]));
-      return true;
+    try {
+      // First check using the API
+      const existingMatch = await checkExistingMatch(profile.id);
+      
+      if (existingMatch) {
+        console.log('Found existing match:', existingMatch.id);
+        setIsMatching(true);
+        setCurrentMatch(existingMatch.id);
+        setSelectedSize(parseInt(existingMatch.match_type.split('v')[0]));
+        return true;
+      }
+
+      // Then check waiting matches
+      if (waitingMatches) {
+        const matchInWaiting = waitingMatches.find(match => 
+          Array.isArray(match.match_teams) && 
+          match.match_teams.some(team =>
+            Array.isArray(team.match_members) &&
+            team.match_members.some(member => member.user_id === profile.id)
+          )
+        );
+
+        if (matchInWaiting) {
+          console.log('Found match in waiting:', matchInWaiting.id);
+          setIsMatching(true);
+          setCurrentMatch(matchInWaiting.id);
+          setSelectedSize(parseInt(matchInWaiting.match_type.split('v')[0]));
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking existing match:', error);
+      return false;
     }
-    return false;
-  }, [profile?.id, waitingMatches, setCurrentMatch]);
+  }, [profile?.id, waitingMatches, setCurrentMatch, checkExistingMatch]);
 
-  // 初始化时检查现有匹配
+  // Initialize check for existing match
   useEffect(() => {
-    checkExistingMatch();
-  }, [checkExistingMatch]);
+    verifyExistingMatch();
+  }, [verifyExistingMatch]);
 
-  // 检查匹配状态
+  // Check match status
   const { data: matchStatus } = useCheckMatchStatus(currentMatchId);
 
-  // 监听匹配状态变化
+  // Watch for match status changes
   useEffect(() => {
     if (matchStatus?.treasure_matches_by_pk) {
       const status = matchStatus.treasure_matches_by_pk.status;
@@ -78,7 +100,7 @@ const MatchMaking = () => {
     }
   }, [matchStatus, clearCurrentMatch]);
 
-  // 组件清理
+  // Component cleanup
   useEffect(() => {
     const cleanup = () => {
       setIsMatching(false);
@@ -97,102 +119,46 @@ const MatchMaking = () => {
     }
   }, [isMatching, clearCurrentMatch]);
 
-  if (isLoadingProfile) {
-    return (
-      <div className="text-center py-8">
-        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>Please log in first</AlertDescription>
-      </Alert>
-    );
-  }
-
-  const isMatchAvailable = (size: number) => {
-    return !isMatching && waitingMatches?.some(m =>
-      m.match_type === `${size}v${size}` &&
-      Array.isArray(m.match_teams) &&
-      m.match_teams.some(t => t.current_players < t.max_players)
-    );
-  };
-
-  const currentMatch = waitingMatches?.find(match => 
-    Array.isArray(match.match_teams) && 
-    match.match_teams.some(team =>
-      Array.isArray(team.match_members) &&
-      team.match_members.some(member => member.user_id === profile?.id)
-    )
-  );
-
-  const isCreator = currentMatch && 
-    Array.isArray(currentMatch.match_teams) && 
-    currentMatch.match_teams.some(team =>
-      Array.isArray(team.match_members) &&
-      team.match_members.length > 0 &&
-      team.match_members[0].user_id === profile?.id
-    );
-
   const handleCancelMatch = async () => {
-    if (!currentMatch || !profile) return;
-
+    if (!currentMatchId || !profile) return;
+  
     try {
-      if (isCreator) {
-        await deleteMatch.mutateAsync(currentMatch.id);
-      } else {
-        const team = Array.isArray(currentMatch.match_teams) &&
-          currentMatch.match_teams.find(team =>
-            Array.isArray(team.match_members) &&
-            team.match_members.some(member => member.user_id === profile.id)
-          );
-
-        if (team) {
-          await leaveMatch.mutateAsync({
-            match_id: currentMatch.id,
-            user_id: profile.id
-          });
-
-          await updateTeamPlayers.mutateAsync({
-            team_id: team.id,
-            current_players: Math.max(0, team.current_players - 1)
-          });
-        }
-      }
-
-      clearCurrentMatch();
+      setError(null);
+      await cancelMatch.mutateAsync({
+        matchId: currentMatchId,
+        userId: profile.id
+      });
+      
+      // Only update local state if mutation succeeded
       setIsMatching(false);
       setSelectedSize(null);
-      router.push('/main/match');
     } catch (error) {
       console.error('Failed to cancel match:', error);
-      setError('Failed to cancel match, please try again');
+      setError(error instanceof Error ? error.message : 'Failed to cancel match, please try again');
     }
   };
-
+  
   const handleMatchStart = async (size: number) => {
     try {
-      if (isMatching || currentMatch) {
-        setError('You are already in a match, please leave the current match first');
+      if (!profile?.id) {
+        setError('Please log in first');
         return;
       }
 
-      if (!profile) {
-        setError('Please log in first');
+      const hasExistingMatch = await verifyExistingMatch();
+      if (hasExistingMatch) {
+        setError('You are already in a match');
         return;
       }
 
       setError(null);
       setSelectedSize(size);
+      setIsMatching(true);
       const newMatchType = `${size}v${size}`;
 
-      setIsMatching(true);
-
       const availableMatch = waitingMatches?.find(match => 
+        match.status === 'matching' &&
+        match.match_type === newMatchType &&
         Array.isArray(match.match_teams) &&
         match.match_teams.some(team =>
           team.current_players < team.max_players &&
@@ -249,13 +215,37 @@ const MatchMaking = () => {
     } catch (error) {
       console.error('Failed to start/join match:', error);
       setIsMatching(false);
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Match failed, please try again');
-      }
+      setError(error instanceof Error ? error.message : 'Match failed, please try again');
     }
   };
+
+  if (isLoadingProfile) {
+    return (
+      <div className="text-center py-8">
+        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Please log in first</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const isMatchAvailable = (size: number) => {
+    return !isMatching && waitingMatches?.some(m =>
+      m.match_type === `${size}v${size}` &&
+      Array.isArray(m.match_teams) &&
+      m.match_teams.some(t => t.current_players < t.max_players)
+    );
+  };
+
+  const shouldShowMatchDetail = Boolean(currentMatchId) || isMatching;
+  const isLoadingMatchData = isLoadingMatch && currentMatchId;
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -270,21 +260,9 @@ const MatchMaking = () => {
             </Alert>
           )}
 
-          {isMatching || currentMatch ? (
+          {shouldShowMatchDetail ? (
             <div className="space-y-4">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Currently Matching</h3>
-                {currentMatch && (
-                  <p className="text-gray-500">
-                    {currentMatch.match_type} - Waiting for players to join
-                    ({Array.isArray(currentMatch.match_teams) ? 
-                      currentMatch.match_teams.reduce((sum, team) => sum + (team.current_players || 0), 0) : 0}/
-                     {Array.isArray(currentMatch.match_teams) ? 
-                      currentMatch.match_teams.reduce((sum, team) => sum + (team.max_players || 0), 0) : 0})
-                  </p>
-                )}
-              </div>
-
+              {/* Cancel Match Button */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -299,7 +277,11 @@ const MatchMaking = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Cancel Match?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {isCreator
+                      {Array.isArray(currentMatchData?.match_teams) && 
+                      currentMatchData.match_teams.some(team => 
+                        Array.isArray(team.match_members) &&
+                        team.match_members[0]?.user_id === profile.id
+                      )
                         ? 'As the creator, canceling will end the entire match'
                         : 'You will exit the current match'
                       }
@@ -314,10 +296,19 @@ const MatchMaking = () => {
                 </AlertDialogContent>
               </AlertDialog>
 
-              {currentMatchId && <MatchDetail matchId={currentMatchId} />}
+              {/* Loading State */}
+              {isLoadingMatchData ? (
+                <div className="text-center py-8">
+                  <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
+                  <p>Loading match information...</p>
+                </div>
+              ) : currentMatchId ? (
+                <MatchDetail matchId={currentMatchId} />
+              ) : null}
             </div>
           ) : (
             <>
+              {/* Match Selection UI */}
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 5].map((size) => (
                   <Button
@@ -340,6 +331,7 @@ const MatchMaking = () => {
                 ))}
               </div>
 
+              {/* Match Creation Loading State */}
               {(createMatch.isPending || addTeamMember.isPending) && (
                 <div className="text-center py-4">
                   <Timer className="animate-spin h-6 w-6 mx-auto mb-2" />

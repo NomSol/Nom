@@ -78,7 +78,7 @@ export const GET_MATCH_DETAILS = gql`
       status
       start_time
       end_time
-      required_players_per_team   
+      required_players_per_team
       match_teams {
         id
         team_number
@@ -93,22 +93,6 @@ export const GET_MATCH_DETAILS = gql`
             id
             nickname
             avatar_url
-          }
-          team {
-            id
-            team_number
-            total_score
-          }
-        }
-        match_discoveries {
-          id
-          treasure_id
-          score
-          discovered_at
-          treasure {
-            id
-            name
-            points
           }
         }
       }

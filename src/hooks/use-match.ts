@@ -283,9 +283,10 @@ export function useWaitingMatches(matchType: string) {
 }
 
 // Match actions
+// Match actions
 export function useMatchActions() {
   const queryClient = useQueryClient();
-  const { setCurrentMatch } = useCurrentMatch();
+  const { setCurrentMatch, clearCurrentMatch } = useCurrentMatch();
 
   const createMatch = useMutation({
     mutationFn: async (variables: { object: CreateMatchInput }) => {
@@ -370,10 +371,68 @@ export function useMatchActions() {
     }
   });
 
+  const cancelMatch = useMutation({
+    mutationFn: async ({ matchId, userId }: { matchId: string; userId: string }) => {
+      try {
+        // Get match details
+        const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
+          GET_MATCH_DETAILS, 
+          { id: matchId }
+        );
+  
+        console.log('Full match response:', JSON.stringify(matchResponse, null, 2));
+  
+        const match = matchResponse?.treasure_matches_by_pk;
+        if (!match) {
+          throw new Error('Match not found');
+        }
+  
+        console.log('Match data:', JSON.stringify(match, null, 2));
+  
+        // 直接尝试删除匹配
+        console.log('Attempting to delete match:', matchId);
+        const deleteResponse = await graphqlClient.request(DELETE_MATCH, { 
+          match_id: matchId 
+        });
+        console.log('Delete response:', deleteResponse);
+  
+        return { success: true };
+      } catch (error) {
+        console.error('Cancel match error:', error);
+        // 如果删除失败，尝试离开匹配
+        try {
+          console.log('Delete failed, attempting to leave match');
+          await graphqlClient.request(LEAVE_MATCH, {
+            match_id: matchId,
+            user_id: userId
+          });
+          return { success: true };
+        } catch (leaveError) {
+          console.error('Leave match error:', leaveError);
+          throw leaveError instanceof Error 
+            ? leaveError 
+            : new Error('Failed to cancel match');
+        }
+      }
+    },
+    onSuccess: () => {
+      // Clean up and refresh queries
+      clearCurrentMatch();
+      queryClient.invalidateQueries({ queryKey: ['match-status'] });
+      queryClient.invalidateQueries({ queryKey: ['waiting-matches'] });
+    },
+    onError: (error: Error) => {
+      console.error('Mutation error:', error.message);
+    }
+  });
+
+  
   const checkExistingMatch = async (userId: string): Promise<Match | null> => {
     try {
-      const response = await graphqlClient.request<{ treasure_matches: Match[] }>(CHECK_EXISTING_MATCH, { userId });
-  
+      const response = await graphqlClient.request<{ treasure_matches: Match[] }>(
+        CHECK_EXISTING_MATCH, 
+        { userId }
+      );
       return response.treasure_matches?.[0] || null;
     } catch (error) {
       console.error("Error checking for existing match:", error);
@@ -387,6 +446,7 @@ export function useMatchActions() {
     updateTeamPlayers,
     leaveMatch,
     deleteMatch,
-    checkExistingMatch
+    checkExistingMatch,
+    cancelMatch
   };
 }
