@@ -47,7 +47,7 @@ export default function MyPlacementsPage() {
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">My Created Treasures</h1>
-        <Button onClick={() => router.push('treasures/create')}>
+        <Button onClick={() => router.push('create')}>
           Create New Treasure
         </Button>
       </div>
