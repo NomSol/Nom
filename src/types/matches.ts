@@ -79,6 +79,7 @@ export interface UpdateTeamPlayersInput {
   current_players: number;
 }
 
+
 export interface UpdateMatchStatusInput {
   id: string;
   status: string;
@@ -131,6 +132,21 @@ export interface UpdateMatchStatusResponse {
   update_treasure_matches_by_pk: Match;
 }
 
+export interface MatchStatus {
+  id: string;
+  status: string;
+  match_teams: {
+    id: string;
+    current_players: number;
+    max_players: number;
+  }[];
+}
+
+export interface MatchStatusResponse {
+  treasure_matches_by_pk: MatchStatus;
+}
+
+
 export interface UpdateTeamScoreResponse {
   update_match_teams_by_pk: MatchTeam;
 }
@@ -153,4 +169,26 @@ export interface GetWaitingMatchesResponse {
 
 export interface GetUserMatchHistoryResponse {
   match_members: MatchMember[];
+}
+
+export interface MatchSubscriptionResponse {
+  treasure_matches_by_pk: Match;
+}
+
+export interface WaitingMatchesSubscriptionResponse {
+  treasure_matches: Match[];
+}
+
+export interface UpdateTeamPlayersResponse {
+  update_match_teams_by_pk: {
+    id: string;
+    current_players: number;
+    max_players: number;
+  };
+}
+
+export interface CheckExistingMatchResponse {
+  match_members: {
+    match_id: string;
+  }[];
 }

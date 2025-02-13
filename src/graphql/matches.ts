@@ -78,7 +78,7 @@ export const GET_MATCH_DETAILS = gql`
       status
       start_time
       end_time
-      required_players_per_team   
+      required_players_per_team
       match_teams {
         id
         team_number
@@ -93,22 +93,6 @@ export const GET_MATCH_DETAILS = gql`
             id
             nickname
             avatar_url
-          }
-          team {
-            id
-            team_number
-            total_score
-          }
-        }
-        match_discoveries {
-          id
-          treasure_id
-          score
-          discovered_at
-          treasure {
-            id
-            name
-            points
           }
         }
       }
@@ -230,6 +214,38 @@ export const DELETE_MATCH = gql`
   mutation DeleteMatch($match_id: uuid!) {
     delete_treasure_matches_by_pk(id: $match_id) {
       id
+    }
+  }
+`;
+
+export const CHECK_EXISTING_MATCH = gql`
+  query CheckExistingMatch($userId: uuid!) {
+    treasure_matches(
+      where: {
+        status: { _eq: "matching" },
+        match_teams: {
+          match_members: {
+            user_id: { _eq: $userId }
+          }
+        }
+      }
+    ) {
+      id
+      match_type
+      status
+      start_time
+      end_time
+      required_players_per_team
+      match_teams {
+        id
+        team_number
+        current_players
+        max_players
+        match_members {
+          id
+          user_id
+        }
+      }
     }
   }
 `;
