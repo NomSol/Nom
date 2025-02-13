@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Edit, Heart, Trash } from 'lucide-react';
 import Image from 'next/image';
@@ -7,8 +7,59 @@ import { useUserProfile } from '@/hooks/use-user';
 import { useLikes } from '@/hooks/use-likes';
 import { Treasure } from '@/types/treasure';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { VerifyTreasureDialog } from './verify-dialog';
+import { createClient } from 'graphql-ws';
+import { TREASURE_LIKES_SUBSCRIPTION } from '@/graphql/likes';
+
+interface SubscriptionData {
+  treasures_by_pk: {
+    id: string;
+    likes_count: number;
+  } | null;
+}
+
+export const wsClient = createClient({
+  url: process.env.NEXT_PUBLIC_HASURA_WS_URL || 'wss://treasure-hunt.hasura.app/v1/graphql',
+  connectionParams: {
+    headers: {
+      'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET
+    }
+  }
+});
+
+export function useTreasureSubscription(treasureId: string) {
+  const [likesCount, setLikesCount] = useState<number>(0);
+
+  useEffect(() => {
+    const unsubscribe = wsClient.subscribe<SubscriptionData>(
+      {
+        query: TREASURE_LIKES_SUBSCRIPTION,
+        variables: { treasure_id: treasureId },
+      },
+      {
+        next: (result) => {
+          const count = result.data?.treasures_by_pk?.likes_count;
+          if (typeof count === 'number') {
+            setLikesCount(count);
+          }
+        },
+        error: (error) => {
+          console.error('Subscription error:', error);
+        },
+        complete: () => {
+          console.log('Subscription completed');
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [treasureId]);
+
+  return likesCount;
+}
 
 interface TreasureCardProps {
   treasure: Treasure;
@@ -25,6 +76,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
   const liked = isLiked(treasure.id);
   const isCreator = treasure.creator_id === profile?.id;
   const isFound = treasure.finder_id === profile?.id;
+  const realTimeLikesCount = useTreasureSubscription(treasure.id);
 
   // Format treasure ID to show only first 6 digits
   const shortId = treasure.id.slice(0, 6);
@@ -100,7 +152,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
                 )}
               />
             </Button>
-            <span className="font-mono">{treasure.likes_count}</span>
+            <span className="font-mono">{realTimeLikesCount}</span>
           </div>
         </div>
 
