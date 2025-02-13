@@ -5,7 +5,8 @@ export const LIKE_TREASURE = `
       treasure_id: $treasure_id,
       user_id: $user_id
     }) {
-      id
+      treasure_id
+      user_id
     }
   }
 `;
@@ -25,6 +26,24 @@ export const GET_USER_LIKES = `
   query GetUserLikes($user_id: uuid!) {
     treasure_likes(where: { user_id: { _eq: $user_id }}) {
       treasure_id
+    }
+  }
+`;
+
+export const GET_TREASURE_LIKES_COUNT = `
+  query GetTreasureLikesCount($treasure_id: uuid!) {
+    treasures_by_pk(id: $treasure_id) {
+      id
+      likes_count
+    }
+  }
+`;
+
+export const TREASURE_LIKES_SUBSCRIPTION = `
+  subscription TreasureLikesSubscription($treasure_id: uuid!) {
+    treasures_by_pk(id: $treasure_id) {
+      id
+      likes_count
     }
   }
 `;
