@@ -8,12 +8,14 @@ import { TreasureList } from '@/components/treasures/treasure_list';
 import { useTreasures } from '@/hooks/use-treasure';
 import { useToast } from '@/components/ui/toaster';
 import { useSession } from 'next-auth/react';
+import { useUserProfile } from '@/hooks/use-user';
 
 export default function MyPlacementsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
   const { userPlacements, isLoading, error, deleteTreasure } = useTreasures();
+  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
 
   // Redirect to login if user is not authenticated
   useEffect(() => {
@@ -43,19 +45,25 @@ export default function MyPlacementsPage() {
     }
   };
 
+  // 确保所有 treasures 都设置了正确的 creator_id
+  const treasuresWithCreator = userPlacements?.map(treasure => ({
+    ...treasure,
+    creator_id: profile?.id // 确保 creator_id 与当前用户 ID 匹配
+  })) || [];
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">My Created Treasures</h1>
-        <Button onClick={() => router.push('treasures/create')}>
+        <Button onClick={() => router.push('create')}>
           Create New Treasure
         </Button>
       </div>
 
       <TreasureList
-        treasures={userPlacements || []}
+        treasures={treasuresWithCreator}
         onDelete={handleDelete}
-        showActions={true} // Enable actions like delete
+        showActions={true}
       />
     </div>
   );

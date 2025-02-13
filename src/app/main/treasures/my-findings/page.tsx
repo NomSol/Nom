@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { TreasureList } from '@/components/treasures/treasure_list';
 import { useTreasures } from '@/hooks/use-treasure';
 import { useSession } from 'next-auth/react';
+import { useUserProfile } from '@/hooks/use-user';
 
 export default function MyFindingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { userFindings, isLoading, error } = useTreasures();
+  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
 
   // Redirect to login if user is not authenticated
   useEffect(() => {
@@ -27,13 +29,18 @@ export default function MyFindingsPage() {
     return <div>Error loading treasures</div>;
   }
 
+  const findingsWithFinder = userFindings?.map(treasure => ({
+    ...treasure,
+    finder_id: profile?.id
+  })) || [];
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       <h1 className="text-3xl font-bold">My Found Treasures</h1>
       
       <TreasureList
-        treasures={userFindings || []}
-        showActions={false} // Disable actions like edit/delete
+        treasures={findingsWithFinder}
+        showActions={false}
       />
     </div>
   );

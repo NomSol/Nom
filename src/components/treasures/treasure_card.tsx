@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { VerifyTreasureDialog } from './verify-dialog';
 
-
 interface TreasureCardProps {
   treasure: Treasure;
   onEdit?: (treasure: Treasure) => void;
@@ -20,21 +19,15 @@ interface TreasureCardProps {
 export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) {
   const { data: session } = useSession();
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const { profile } = useUserProfile({ enabled: !!session?.user?.email });
   const { isLiked, likeTreasure, unlikeTreasure } = useLikes();
   const liked = isLiked(treasure.id);
-  // Check if this treasure is created by the current user
   const isCreator = treasure.creator_id === profile?.id;
-  // Check if this treasure is already found by the current user
   const isFound = treasure.finder_id === profile?.id;
 
-  console.log('TreasureCard render:', {
-    treasureId: treasure.id,
-    liked,
-    hasProfile: !!profile,
-    cathId: profile?.cath_id,
-    likesCount: treasure.likes_count
-  });
+  // Format treasure ID to show only first 6 digits
+  const shortId = treasure.id.slice(0, 6);
 
   const handleLikeClick = async () => {
     if (!profile?.id) {
@@ -43,94 +36,137 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
     }
     
     try {
-      console.log('Attempting to', liked ? 'unlike' : 'like', 'treasure:', treasure.id);
-      
       if (liked) {
-        const result = await unlikeTreasure.mutateAsync(treasure.id);
-        console.log('Unlike result:', result);
+        await unlikeTreasure.mutateAsync(treasure.id);
       } else {
-        const result = await likeTreasure.mutateAsync(treasure.id);
-        console.log('Like result:', result);
+        await likeTreasure.mutateAsync(treasure.id);
       }
     } catch (error) {
       console.error('Failed to update like status:', error);
     }
   };
 
-  return (
-    <Card className="hover:shadow-lg transition-shadow">
-      {treasure.image_url && (
-        <div className="relative w-full h-48">
-          <Image
-            src={treasure.image_url}
-            alt={treasure.name}
-            fill
-            className="object-cover rounded-t-lg"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        </div>
-      )}
-      
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold">{treasure.name}</CardTitle>
-        <div className="flex space-x-2">
-            <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLikeClick}
-            disabled={!profile?.id}
-            className="relative"
-          >
-            <Heart
-              className={cn(
-                "h-4 w-4 transition-colors",
-                liked ? "fill-red-500 text-red-500" : "text-gray-500"
-              )}
-            />
-            <span className="absolute -bottom-4 text-xs">
-              {treasure.likes_count || 0}
-            </span>
-          </Button>
-          {onEdit && (
-            <Button variant="ghost" size="icon" onClick={() => onEdit(treasure)}>
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-          {onDelete && (
-            <Button variant="ghost" size="icon" onClick={() => onDelete(treasure.id)}>
-              <Trash className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+  const handleLogsClick = () => {
+    setShowLogs(!showLogs);
+    console.log('Logs clicked for treasure:', treasure.id);
+  };
 
-      <CardContent>
-        <p className="text-sm text-gray-500 mb-4">{treasure.description}</p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>Points: {treasure.points}</div>
-          <div>Status: {treasure.status}</div>
-          <div>Lat: {treasure.latitude.toFixed(6)}</div>
-          <div>Long: {treasure.longitude.toFixed(6)}</div>
-          
-          {/* Add verify button if not creator and not found */}
-          {!isCreator && !isFound && (
-            <Button 
-              className="col-span-2 mt-2"
-              onClick={() => setVerifyDialogOpen(true)}
-            >
-              Verify the treasure
-            </Button>
+  return (
+    <Card className="w-full overflow-hidden bg-white border-2 border-gray-200 rounded-xl">
+      <div className="p-3">
+        {/* Header - Creator Info */}
+        <div className="text-xs text-gray-600 text-center border-b border-gray-100 pb-2">
+          Placed by: @user
+          <br />
+          on {new Date(treasure.created_at).toLocaleDateString()}
+        </div>
+
+        {/* Image Section */}
+        <div className="relative w-full aspect-[4/3] my-2">
+          {treasure.image_url && (
+            <Image
+              src={treasure.image_url}
+              alt={treasure.name}
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 50vw, 33vw"
+            />
           )}
+        </div>
+
+        {/* ID and Type */}
+        <div className="text-center mb-2">
+          <p className="text-sm font-mono">#{shortId} | {treasure.status}</p>
+        </div>
+
+        {/* Stats Row */}
+        <div className="flex justify-center items-center space-x-6 mb-3">
+          <div className="flex items-center space-x-1">
+            <span role="img" aria-label="views" className="text-lg">👁️</span>
+            <span className="font-mono">{treasure.points}</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLikeClick}
+              disabled={!profile?.id}
+              className="p-0 h-auto hover:bg-transparent"
+            >
+              <Heart
+                className={cn(
+                  "h-5 w-5 transition-colors",
+                  liked ? "fill-red-500 text-red-500" : "text-gray-500"
+                )}
+              />
+            </Button>
+            <span className="font-mono">{treasure.likes_count}</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap justify-center items-center gap-2">
+          <div className="flex justify-center gap-2 order-2 w-full">
+            {!isCreator && !isFound && (
+              <Button 
+                variant="outline"
+                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200 rounded-full px-4 text-sm h-8 min-w-[80px]"
+                onClick={() => setVerifyDialogOpen(true)}
+              >
+                MINT
+              </Button>
+            )}
+            <Button 
+              variant="outline"
+              className="bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 rounded-full px-4 text-sm h-8 min-w-[80px]"
+              onClick={handleLogsClick}
+            >
+              Logs
+            </Button>
+          </div>
           
-          {/* Show found status if found */}
-          {isFound && (
-            <div className="col-span-2 flex items-center justify-center gap-2 text-green-600">
-              <Check className="w-4 h-4" />
-              <span>Found</span>
+          {/* Edit and Delete buttons in a separate container */}
+          {(onEdit || onDelete) && (
+            <div className="flex justify-center gap-1 order-1">
+              {onEdit && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="hover:bg-gray-100 h-8 w-8"
+                  onClick={() => onEdit(treasure)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="hover:bg-gray-100 h-8 w-8"
+                  onClick={() => onDelete(treasure.id)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           )}
         </div>
-      </CardContent>
+
+        {/* Found Status */}
+        {isFound && (
+          <div className="flex items-center justify-center gap-2 text-green-600 mt-2">
+            <Check className="w-4 h-4" />
+            <span className="text-sm">Found</span>
+          </div>
+        )}
+
+        {/* Logs Panel */}
+        {showLogs && (
+          <div className="mt-3 p-2 bg-gray-50 rounded-lg text-sm">
+            <p className="text-gray-600">Treasure activity logs...</p>
+          </div>
+        )}
+      </div>
 
       <VerifyTreasureDialog
         treasureId={treasure.id}
