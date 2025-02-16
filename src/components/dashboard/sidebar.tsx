@@ -8,7 +8,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/dashboard/button_sidebar";
 import { Sheet, SheetContent } from "@/components/dashboard/sheet";
-
 import {
   Tooltip,
   TooltipContent,
@@ -65,10 +64,24 @@ const SidebarProvider = React.forwardRef<
     ref
   ) => {
     const isMobile = useIsMobile();
+    // When it is a mobile terminal, the sidebar is displayed by default (or you can change it to false according to your needs)
+    // const [openMobile, setOpenMobile] = React.useState(isMobile);
+
+    // Modification: The mobile version does not expand the sidebar by default
     const [openMobile, setOpenMobile] = React.useState(false);
 
-    // This is the internal state of the sidebar.
-    // We use openProp and setOpenProp for control from outside the component.
+    // Added: Maintain current state when screen size changes
+    React.useEffect(() => {
+      if (!isMobile) {
+        setOpenMobile(false);
+      }
+    }, [isMobile]);
+
+    React.useEffect(() => {
+      setOpenMobile(isMobile);
+    }, [isMobile]);
+
+    // Internal state is used on desktop
     const [_open, _setOpen] = React.useState(defaultOpen);
     const open = openProp ?? _open;
     const setOpen = React.useCallback(
@@ -79,21 +92,17 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState);
         }
-
-        // This sets the cookie to keep the sidebar state.
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
       },
       [setOpenProp, open]
     );
 
-    // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
       return isMobile
         ? setOpenMobile((open) => !open)
         : setOpen((open) => !open);
     }, [isMobile, setOpen, setOpenMobile]);
 
-    // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
         if (
@@ -109,8 +118,6 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown);
     }, [toggleSidebar]);
 
-    // We add a state so that we can do data-state="expanded" or "collapsed".
-    // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed";
 
     const contextValue = React.useMemo<SidebarContext>(
@@ -175,37 +182,72 @@ const Sidebar = React.forwardRef<
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
     if (collapsible === "none") {
+      // return (
+      //   <div
+      //     className={cn(
+      //       "flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground",
+      //       className
+      //     )}
+      //     ref={ref}
+      //     {...props}
+      //   >
+      //     {children}
+      //   </div>
+      // );
       return (
         <div
+          ref={ref}
           className={cn(
-            "flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground",
+            "fixed inset-y-0 left-0 z-50 flex h-screen bg-white border-r transition-all duration-300",
+            state === "expanded" ? "w-64" : "w-12",
             className
           )}
-          ref={ref}
           {...props}
         >
-          {children}
+          <div className="flex h-full w-full flex-col">{children}</div>
         </div>
       );
     }
 
     if (isMobile) {
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-          <SheetContent
-            data-sidebar="sidebar"
-            data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
-            style={
-              {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-              } as React.CSSProperties
-            }
-            side={side}
-          >
-            <div className="flex h-full w-full flex-col">{children}</div>
-          </SheetContent>
-        </Sheet>
+        // <>
+        //   <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+        //     <SheetContent
+        //       data-sidebar="sidebar"
+        //       data-mobile="true"
+        //       className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground "
+        //       // [&>button]:hidden
+        //       style={
+        //         {
+        //           "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+        //         } as React.CSSProperties
+        //       }
+        //       side={side}
+        //     >
+        //       <div className="flex h-full w-full flex-col">{children}</div>
+        //     </SheetContent>
+        //   </Sheet>
+        // </>
+        <>
+          {/* Modification: The trigger button is always displayed on the mobile terminal */}
+          <SidebarTrigger className="fixed top-2 left-2 z-50 bg-white rounded-md shadow-md" />
+          <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+            <SheetContent
+              data-sidebar="sidebar"
+              data-mobile="true"
+              className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground"
+              style={
+                {
+                  "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                } as React.CSSProperties
+              }
+              side={side}
+            >
+              <div className="flex h-full w-full flex-col">{children}</div>
+            </SheetContent>
+          </Sheet>
+        </>
       );
     }
 
