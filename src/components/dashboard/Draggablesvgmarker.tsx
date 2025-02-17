@@ -27,9 +27,32 @@ export function DraggableTreasureMarkerSvg({
     if (!map) return;
 
     // 1. 这里放你的 SVG 字符串 (可自行替换为其他样式)
+    // const treasureChestSvg = `<?xml version="1.0" encoding="UTF-8"?>
+    // <svg width="15" height="15" viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" id="fire-station">
+    //   <path fill="#F00C0C" d="M7.5 14C11.0899 14 14 11 14 7.50003C14 4.5 11.5 2 11.5 2L10.5 5.5L7.5 1L4.5 5.5L3.5 2C3.5 2 1 4.5 1 7.50003C1 11 3.91015 14 7.5 14ZM7.5 12.5C6.11929 12.5 5 11.3807 5 10C5 8.61929 7.5 5.5 7.5 5.5C7.5 5.5 10 8.61929 10 10C10 11.3807 8.88071 12.5 7.5 12.5Z"/>
+    // </svg>`;
+
     const treasureChestSvg = `<?xml version="1.0" encoding="UTF-8"?>
-    <svg width="15" height="15" viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" id="fire-station">
-      <path fill="#F00C0C" d="M7.5 14C11.0899 14 14 11 14 7.50003C14 4.5 11.5 2 11.5 2L10.5 5.5L7.5 1L4.5 5.5L3.5 2C3.5 2 1 4.5 1 7.50003C1 11 3.91015 14 7.5 14ZM7.5 12.5C6.11929 12.5 5 11.3807 5 10C5 8.61929 7.5 5.5 7.5 5.5C7.5 5.5 10 8.61929 10 10C10 11.3807 8.88071 12.5 7.5 12.5Z"/>
+    <svg width="48" height="48" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+          <feOffset dx="0" dy="1"/>
+          <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+          <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.4 0"/>
+        </filter>
+      </defs>
+      <circle cx="16" cy="16" r="15" fill="#7C3AED" opacity="0.2"/>
+      <circle cx="16" cy="16" r="13" fill="#7C3AED" filter="url(#shadow)"/>
+      <circle cx="16" cy="16" r="11" fill="#6D28D9"/>
+      <path d="M15 10h2v5h5v2h-5v5h-2v-5h-5v-2h5v-5z" fill="#FFD700"/>
+      <path d="M16 7c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9zm0 2c-3.87 0-7 3.13-7 7s3.13 7 7 7 7-3.13 7-7-3.13-7-7-7z" fill="white" opacity="0.4"/>
+      <g fill="white" opacity="0.8">
+        <path d="M16 4l2 3h-4l2-3z"/>
+        <path d="M16 28l2-3h-4l2 3z"/>
+        <path d="M4 16l3-2v4l-3-2z"/>
+        <path d="M28 16l-3-2v4l3-2z"/>
+      </g>
     </svg>`;
 
     //     `<?xml version="1.0" encoding="UTF-8"?>

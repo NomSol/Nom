@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useContext, useEffect } from "react";
 import { Plus, ChevronRight, ChevronDown } from "lucide-react";
-import { MapContext } from "./MapContext";
+import { MapContext } from "@/components/dashboard/MapContext";
+
 import { TreasureCreationForm } from "./TreansureCreationForm";
 import { useTreasures } from "@/hooks/use-treasure";
 import { Treasure } from "@/types/treasure";
