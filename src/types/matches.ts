@@ -183,14 +183,6 @@ export interface UpdateTeamScoreResponse {
   update_match_teams_by_pk: MatchTeam;
 }
 
-export interface UpdateTeamPlayersResponse {
-  update_match_teams_by_pk: {
-    id: string;
-    current_players: number;
-    max_players: number;
-  };
-}
-
 export interface GetMatchDetailsResponse {
   treasure_matches_by_pk: Match;
 }
