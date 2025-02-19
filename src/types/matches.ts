@@ -5,7 +5,10 @@ export interface Match {
   status: string;
   start_time: string;
   end_time: string;
+  duration: string;          
   required_players_per_team: number;
+  winner_team_id?: string;         
+  is_finished?: boolean;    
   match_teams: MatchTeam[];
 }
 
@@ -44,6 +47,35 @@ export interface MatchDiscovery {
     id: string;
     name: string;
     points: number;
+  };
+}
+
+// ===== 结算相关类型定义 =====
+
+// 结算输入类型
+export interface SettleMatchInput {
+  match_id: string;
+  winner_team_id: string;
+  end_time?: string;
+}
+
+// 结算响应类型
+export interface SettleMatchResponse {
+  update_treasure_matches_by_pk: {
+    id: string;
+    status: string;
+    end_time: string;
+    winner_team_id: string;
+    match_teams: {
+      id: string;
+      team_number: number;
+      total_score: number;
+      match_members: {
+        id: string;
+        user_id: string;
+        individual_score: number;
+      }[];
+    }[];
   };
 }
 

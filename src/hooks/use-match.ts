@@ -15,7 +15,9 @@ import type {
   MatchSubscriptionResponse,
   WaitingMatchesSubscriptionResponse,
   UpdateTeamPlayersResponse,
-  MatchStatusResponse
+  MatchStatusResponse,
+  SettleMatchInput,
+  SettleMatchResponse
 } from "@/types/matches";
 
 import { 
@@ -27,7 +29,11 @@ import {
   GET_MATCH_DETAILS, 
   GET_WAITING_MATCHES, 
   LEAVE_MATCH, 
-  UPDATE_TEAM_PLAYERS 
+  UPDATE_TEAM_PLAYERS,
+  MATCH_SUBSCRIPTION,
+  WAITING_MATCHES_SUBSCRIPTION,
+  GET_MATCH_RESULT,
+  SETTLE_MATCH
 } from "@/graphql/matches";
 
 // WebSocket client
@@ -39,78 +45,6 @@ const wsClient = createClient({
     }
   }
 });
-
-// Subscription documents
-const MATCH_SUBSCRIPTION = `
-  subscription OnMatchUpdate($id: uuid!) {
-    treasure_matches_by_pk(id: $id) {
-      id
-      match_type
-      status
-      start_time
-      end_time
-      required_players_per_team
-      match_teams {
-        id
-        team_number
-        total_score
-        current_players
-        max_players
-        match_members {
-          id
-          user_id
-          individual_score
-          user {
-            id
-            nickname
-            avatar_url
-          }
-        }
-        match_discoveries {
-          id
-          treasure_id
-          score
-          discovered_at
-          treasure {
-            id
-            name
-            points
-          }
-        }
-      }
-    }
-  }
-`;
-
-const WAITING_MATCHES_SUBSCRIPTION = `
-  subscription OnWaitingMatchesUpdate($matchType: String!) {
-    treasure_matches(
-      where: {
-        status: { _eq: "matching" }
-        match_type: { _eq: $matchType }
-      }
-    ) {
-      id
-      match_type
-      status
-      required_players_per_team
-      match_teams {
-        id
-        team_number
-        current_players
-        max_players
-        match_members {
-          id
-          user_id
-          user {
-            nickname
-            avatar_url
-          }
-        }
-      }
-    }
-  }
-`;
 
 // Current match management
 export function useCurrentMatch() {
@@ -181,21 +115,21 @@ export function useCheckMatchStatus(matchId: string | null) {
 }
 
 // Enhanced match hook with subscription
-export function useMatch(id: string) {
+export function useMatch(matchId: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!id) return;
+    if (!matchId) return;
 
     const unsubscribe = wsClient.subscribe(
       {
         query: MATCH_SUBSCRIPTION,
-        variables: { id },
+        variables: { matchId },
       },
       {
         next: (data: { data?: MatchSubscriptionResponse }) => {
           if (data.data?.treasure_matches_by_pk) {
-            queryClient.setQueryData(["match", id], data.data.treasure_matches_by_pk);
+            queryClient.setQueryData(["match", matchId], data.data.treasure_matches_by_pk);
           }
         },
         error: (err: Error) => {
@@ -210,27 +144,34 @@ export function useMatch(id: string) {
     return () => {
       unsubscribe();
     };
-  }, [id, queryClient]);
+  }, [matchId, queryClient]);
 
   return useQuery({
-    queryKey: ["match", id],
+    queryKey: ["match", matchId],
     queryFn: async () => {
-      const response = await graphqlClient.request<GetMatchDetailsResponse>(
-        GET_MATCH_DETAILS, 
-        { id }
-      );
-      
-      const match = response.treasure_matches_by_pk;
-      if (!match) {
-        throw new Error('Match not found');
+      try {
+        const response = await graphqlClient.request<GetMatchDetailsResponse>(
+          GET_MATCH_DETAILS, 
+          { matchId }
+        );
+        
+        const match = response.treasure_matches_by_pk;
+        if (!match) {
+          throw new Error('Match not found');
+        }
+        
+        return {
+          ...match,
+          match_teams: match.match_teams || []
+        };
+      } catch (error) {
+        console.error('Error fetching match details:', error);
+        throw error;
       }
-      
-      return {
-        ...match,
-        match_teams: match.match_teams || []
-      };
     },
-    enabled: Boolean(id)
+    enabled: Boolean(matchId),
+    retry: false,
+    staleTime: 0
   });
 }
 
@@ -282,7 +223,6 @@ export function useWaitingMatches(matchType: string) {
   });
 }
 
-// Match actions
 // Match actions
 export function useMatchActions() {
   const queryClient = useQueryClient();
@@ -371,60 +311,58 @@ export function useMatchActions() {
     }
   });
 
-  const cancelMatch = useMutation({
-    mutationFn: async ({ matchId, userId }: { matchId: string; userId: string }) => {
-      try {
-        // Get match details
-        const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
-          GET_MATCH_DETAILS, 
-          { id: matchId }
-        );
-  
-        console.log('Full match response:', JSON.stringify(matchResponse, null, 2));
-  
-        const match = matchResponse?.treasure_matches_by_pk;
-        if (!match) {
-          throw new Error('Match not found');
-        }
-  
-        console.log('Match data:', JSON.stringify(match, null, 2));
-  
-        // 直接尝试删除匹配
-        console.log('Attempting to delete match:', matchId);
-        const deleteResponse = await graphqlClient.request(DELETE_MATCH, { 
-          match_id: matchId 
-        });
-        console.log('Delete response:', deleteResponse);
-  
-        return { success: true };
-      } catch (error) {
-        console.error('Cancel match error:', error);
-        // 如果删除失败，尝试离开匹配
-        try {
-          console.log('Delete failed, attempting to leave match');
-          await graphqlClient.request(LEAVE_MATCH, {
-            match_id: matchId,
-            user_id: userId
-          });
-          return { success: true };
-        } catch (leaveError) {
-          console.error('Leave match error:', leaveError);
-          throw leaveError instanceof Error 
-            ? leaveError 
-            : new Error('Failed to cancel match');
-        }
+  // Update the cancelMatch mutation in useMatchActions
+const cancelMatch = useMutation({
+  mutationFn: async ({ matchId, userId }: { matchId: string; userId: string }) => {
+    try {
+      // Get match details
+      const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
+        GET_MATCH_DETAILS, 
+        { matchId } // Updated from 'id' to 'matchId'
+      );
+
+      console.log('Match response:', matchResponse);
+
+      const match = matchResponse?.treasure_matches_by_pk;
+      if (!match) {
+        throw new Error('Match not found');
       }
-    },
-    onSuccess: () => {
-      // Clean up and refresh queries
-      clearCurrentMatch();
-      queryClient.invalidateQueries({ queryKey: ['match-status'] });
-      queryClient.invalidateQueries({ queryKey: ['waiting-matches'] });
-    },
-    onError: (error: Error) => {
-      console.error('Mutation error:', error.message);
+
+      // Try to delete the match
+      console.log('Attempting to delete match:', matchId);
+      const deleteResponse = await graphqlClient.request(DELETE_MATCH, { 
+        matchId // Updated from 'match_id' to 'matchId'
+      });
+      console.log('Delete response:', deleteResponse);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Cancel match error:', error);
+      // If delete fails, try to leave the match
+      try {
+        console.log('Delete failed, attempting to leave match');
+        await graphqlClient.request(LEAVE_MATCH, {
+          matchId,
+          userId
+        });
+        return { success: true };
+      } catch (leaveError) {
+        console.error('Leave match error:', leaveError);
+        throw leaveError instanceof Error 
+          ? leaveError 
+          : new Error('Failed to cancel match');
+      }
     }
-  });
+  },
+  onSuccess: () => {
+    clearCurrentMatch();
+    queryClient.invalidateQueries({ queryKey: ['match-status'] });
+    queryClient.invalidateQueries({ queryKey: ['waiting-matches'] });
+  },
+  onError: (error: Error) => {
+    console.error('Mutation error:', error.message);
+  }
+});
 
   
   const checkExistingMatch = async (userId: string): Promise<Match | null> => {
@@ -448,5 +386,59 @@ export function useMatchActions() {
     deleteMatch,
     checkExistingMatch,
     cancelMatch
+  };
+}
+
+export function useMatchSettlement(matchId?: string) {
+  const queryClient = useQueryClient();
+
+  // 计算获胜队伍
+  const calculateWinnerTeam = (match: Match) => {
+    if (!match.match_teams?.length) return null;
+    return [...match.match_teams].sort((a, b) => b.total_score - a.total_score)[0];
+  };
+
+  // 手动结算比赛
+  const settleMatch = useMutation({
+    mutationFn: async ({ match_id, winner_team_id }: SettleMatchInput) => {
+      const response = await graphqlClient.request<SettleMatchResponse>(
+        SETTLE_MATCH,
+        { match_id, winner_team_id }
+      );
+      return response.update_treasure_matches_by_pk;
+    },
+    onSuccess: (data) => {
+      // 更新相关查询缓存
+      queryClient.invalidateQueries({ queryKey: ['match', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['match-result', data.id] });
+    }
+  });
+
+  // 获取比赛结果
+  const matchResult = useQuery({
+    queryKey: ['match-result', matchId],
+    queryFn: async () => {
+      if (!matchId) throw new Error('Match ID is required');
+      
+      const response = await graphqlClient.request<{
+        treasure_matches_by_pk: Match;
+      }>(
+        GET_MATCH_RESULT,
+        { match_id: matchId }
+      );
+      
+      if (!response?.treasure_matches_by_pk) {
+        throw new Error('Match not found');
+      }
+      
+      return response.treasure_matches_by_pk;
+    },
+    enabled: !!matchId 
+  });
+
+  return {
+    settleMatch,
+    matchResult,
+    calculateWinnerTeam
   };
 }
