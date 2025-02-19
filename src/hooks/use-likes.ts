@@ -9,35 +9,14 @@ import {
   UNLIKE_TREASURE, 
   GET_USER_LIKES
 } from '@/graphql/likes';
+
+import type {
+  LikeResponse,
+  UnlikeResponse,
+  UserLikesResponse
+} from '@/types/like'
+
 import { useState } from 'react';
-
-interface LikeResponse {
-  insert_treasure_likes_one: {
-    treasure_id: string;
-    user_id: string;
-  };
-}
-
-interface UnlikeResponse {
-  delete_treasure_likes: {
-    affected_rows: number;
-  };
-}
-
-interface SubscriptionData {
-  data: {
-    treasures_by_pk: {
-      id: string;
-      likes_count: number;
-    } | null;
-  };
-}
-
-interface UserLikesResponse {
-  treasure_likes: Array<{
-    treasure_id: string;
-  }>;
-}
 
 export const wsClient = createClient({
   url: process.env.NEXT_PUBLIC_HASURA_WS_URL || 'ws://your-hasura-endpoint/v1/graphql',
