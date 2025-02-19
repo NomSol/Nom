@@ -312,57 +312,70 @@ export function useMatchActions() {
   });
 
   // Update the cancelMatch mutation in useMatchActions
-const cancelMatch = useMutation({
-  mutationFn: async ({ matchId, userId }: { matchId: string; userId: string }) => {
-    try {
-      // Get match details
-      const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
-        GET_MATCH_DETAILS, 
-        { matchId } // Updated from 'id' to 'matchId'
-      );
-
-      console.log('Match response:', matchResponse);
-
-      const match = matchResponse?.treasure_matches_by_pk;
-      if (!match) {
-        throw new Error('Match not found');
-      }
-
-      // Try to delete the match
-      console.log('Attempting to delete match:', matchId);
-      const deleteResponse = await graphqlClient.request(DELETE_MATCH, { 
-        matchId // Updated from 'match_id' to 'matchId'
-      });
-      console.log('Delete response:', deleteResponse);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Cancel match error:', error);
-      // If delete fails, try to leave the match
+  const cancelMatch = useMutation({
+    mutationFn: async ({ matchId, userId }: { matchId: string; userId: string }) => {
       try {
-        console.log('Delete failed, attempting to leave match');
-        await graphqlClient.request(LEAVE_MATCH, {
-          matchId,
-          userId
-        });
+        // Get match details
+        const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
+          GET_MATCH_DETAILS, 
+          { matchId }
+        );
+  
+        const match = matchResponse?.treasure_matches_by_pk;
+        if (!match) {
+          throw new Error('Match not found');
+        }
+  
+        // 找到用户所在的队伍
+        const userTeam = match.match_teams.find(team => 
+          team.match_members.some(member => member.user_id === userId)
+        );
+        
+        // 计算所有玩家数量
+        const totalPlayers = match.match_teams.reduce((sum, team) => 
+          sum + team.match_members.length, 0
+        );
+  
+        // 如果只有一个玩家，直接删除整个匹配
+        if (totalPlayers === 1) {
+          console.log('Last player leaving, deleting match:', matchId);
+          await graphqlClient.request(DELETE_MATCH, { matchId });
+        } else {
+          // 如果还有其他玩家，只是离开匹配
+          console.log('Player leaving match...');
+          
+          // 1. 移除该玩家
+          await graphqlClient.request(LEAVE_MATCH, {
+            matchId,
+            userId
+          });
+          
+          // 2. 更新队伍当前人数
+          if (userTeam) {
+            await graphqlClient.request(UPDATE_TEAM_PLAYERS, {
+              team_id: userTeam.id,
+              current_players: userTeam.current_players - 1
+            });
+          }
+        }
+  
         return { success: true };
-      } catch (leaveError) {
-        console.error('Leave match error:', leaveError);
-        throw leaveError instanceof Error 
-          ? leaveError 
+      } catch (error) {
+        console.error('Cancel match error:', error);
+        throw error instanceof Error 
+          ? error 
           : new Error('Failed to cancel match');
       }
+    },
+    onSuccess: () => {
+      clearCurrentMatch();
+      queryClient.invalidateQueries({ queryKey: ['match-status'] });
+      queryClient.invalidateQueries({ queryKey: ['waiting-matches'] });
+    },
+    onError: (error: Error) => {
+      console.error('Mutation error:', error.message);
     }
-  },
-  onSuccess: () => {
-    clearCurrentMatch();
-    queryClient.invalidateQueries({ queryKey: ['match-status'] });
-    queryClient.invalidateQueries({ queryKey: ['waiting-matches'] });
-  },
-  onError: (error: Error) => {
-    console.error('Mutation error:', error.message);
-  }
-});
+  });
 
   
   const checkExistingMatch = async (userId: string): Promise<Match | null> => {
