@@ -3,24 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import {
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/dashboard/sidebar";
-import { AppSidebar } from "@/components/dashboard/app-sidebar";
+
+import { MapContext } from "@/components/dashboard/MapContext";
 import { TreasureMarkers } from "@/components/dashboard/TreasureMarkers";
 import { useTreasures } from "@/hooks/use-treasure";
-import { MapContext } from "@/components/dashboard/MapContext";
-import { cn } from "@/lib/utils";
+import { SidebarProvider } from "@/components/dashboard/sidebar";
+
+import { AppTopbar } from "@/components/dashboard/app-topbar";
+import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { FloatingActions } from "@/components/dashboard/FloatingActions"; // <-- new import
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
-function MapContent() {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+export default function MapPage() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const { treasures, isLoading, error } = useTreasures();
-  const { state, isMobile } = useSidebar();
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -38,17 +36,15 @@ function MapContent() {
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("style.load", () => {
-      // add terrain
+      // Add terrain, 3D buildings, lighting, fog, and more
       map.addSource("mapbox-dem", {
         type: "raster-dem",
         url: "mapbox://mapbox.mapbox-terrain-dem-v1",
         tileSize: 512,
         maxzoom: 14,
       });
-
       map.setTerrain({ source: "mapbox-dem", exaggeration: 1.2 });
 
-      // add 3D buildings
       map.addLayer({
         id: "3d-buildings",
         source: "composite",
@@ -74,7 +70,6 @@ function MapContent() {
         },
       });
 
-      // set light
       map.setLight({
         anchor: "viewport",
         color: "#ffffff",
@@ -82,7 +77,6 @@ function MapContent() {
         position: [1, 90, 45],
       });
 
-      // set fog
       map.setFog({
         range: [0.8, 8],
         color: "#ffffff",
@@ -98,57 +92,37 @@ function MapContent() {
   }, []);
 
   return (
-    <MapContext.Provider value={mapInstance}>
-      <div className="fixed inset-0">
-        {/* 地图容器 */}
-        <div ref={mapContainerRef} className="h-full w-full" />
+    <SidebarProvider>
+      <MapContext.Provider value={mapInstance}>
+        {/* Topbar: Displayed when Sidebar is collapsed */}
+        <AppTopbar />
 
-        {/* UI 层（非交互性元素） */}
-        <div className="pointer-events-none">
-          {/* Sidebar */}
-          <div className="pointer-events-auto">
-            <AppSidebar />
-            {!isMobile && (
-              <div
-                className={cn(
-                  "fixed top-2 transition-all duration-300 z-[60]",
-                  state === "expanded" ? "left-[255.5px]" : "left-[0px]"
-                )}
-              >
-                <SidebarTrigger className="bg-white rounded-md shadow-md" />
-              </div>
-            )}
-          </div>
+        {/* Sidebar: Expand when clicking on the kitten of Topbar */}
+        <AppSidebar />
 
-          {/* loading state */}
+        {/* Place the map container at the bottom and let Topbar/Sidebar cover it. */}
+        <div className="fixed inset-0">
+          <div ref={mapContainerRef} className="h-full w-full" />
           {isLoading && (
-            <div className="absolute top-0 left-0 p-4 bg-white z-[51] pointer-events-auto">
+            <div className="absolute top-0 left-0 z-[51] bg-white p-4">
               Loading treasures...
             </div>
           )}
-
-          {/* error state */}
           {error && (
-            <div className="absolute top-0 left-0 p-4 bg-red-500 text-white z-[51] pointer-events-auto">
+            <div className="absolute top-0 left-0 z-[51] bg-red-500 p-4 text-white">
               Error loading treasures
             </div>
           )}
         </div>
 
-        {/* Place TreasureMarkers (and the inner popup components) in an outer layer make sure they can receive mouse events*/}
+        {/* treasure mark */}
         {mapInstance && treasures && treasures.length > 0 && (
           <TreasureMarkers map={mapInstance} treasures={treasures} />
         )}
-      </div>
-    </MapContext.Provider>
-  );
-}
 
-// main page component
-export default function MapPage() {
-  return (
-    <SidebarProvider>
-      <MapContent />
+        {/* Floating button area in the lower right corner */}
+        <FloatingActions />
+      </MapContext.Provider>
     </SidebarProvider>
   );
 }

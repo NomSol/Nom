@@ -337,9 +337,25 @@ export const TreasureMarkers: React.FC<TreasureMarkersProps> = ({
 
     try {
       // create marker 的 SVG
+      // const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+      // <svg width="32" height="32" viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" id="treasure-marker">
+      //   <path fill="#0000FF" d="M7.5 14C11.0899 14 14 11 14 7.50003C14 4.5 11.5 2 11.5 2L10.5 5.5L7.5 1L4.5 5.5L3.5 2C3.5 2 1 4.5 1 7.50003C1 11 3.91015 14 7.5 14ZM7.5 12.5C6.11929 12.5 5 11.3807 5 10C5 8.61929 7.5 5.5 7.5 5.5C7.5 5.5 10 8.61929 10 10C10 11.3807 8.88071 12.5 7.5 12.5Z"/>
+      // </svg>`;
       const svgString = `<?xml version="1.0" encoding="UTF-8"?>
-      <svg width="32" height="32" viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" id="treasure-marker">
-        <path fill="#0000FF" d="M7.5 14C11.0899 14 14 11 14 7.50003C14 4.5 11.5 2 11.5 2L10.5 5.5L7.5 1L4.5 5.5L3.5 2C3.5 2 1 4.5 1 7.50003C1 11 3.91015 14 7.5 14ZM7.5 12.5C6.11929 12.5 5 11.3807 5 10C5 8.61929 7.5 5.5 7.5 5.5C7.5 5.5 10 8.61929 10 10C10 11.3807 8.88071 12.5 7.5 12.5Z"/>
+      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+            <feOffset dx="0" dy="1"/>
+            <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.4 0"/>
+          </filter>
+        </defs>
+        <circle cx="16" cy="16" r="15" fill="#FF6B6B" opacity="0.2"/>
+        <circle cx="16" cy="16" r="13" fill="#FF6B6B" filter="url(#shadow)"/>
+        <circle cx="16" cy="16" r="11" fill="#FF4757"/>
+        <path d="M16 10l-6 4v8l6 4 6-4v-8l-6-4zM16 12l4 2.5-4 2.5-4-2.5 4-2.5z" fill="#FFD700"/>
+        <path d="M16 7c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9zm0 2c-3.87 0-7 3.13-7 7s3.13 7 7 7 7-3.13 7-7-3.13-7-7-7z" fill="white" opacity="0.4"/>
       </svg>`;
 
       treasures.forEach((treasure, index) => {
