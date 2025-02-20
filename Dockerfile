@@ -1,10 +1,12 @@
 # Use Node.js as the base image
 FROM --platform=linux/arm64 arm64v8/node:20
 
-RUN apk add --no-cache python3 py3-pip && \
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
     python3 --version && pip3 --version
+
 # Install AWS CLI
-RUN pip install --break-system-packages awscli && \
+RUN pip install awscli && \
     aws --version
 
 
