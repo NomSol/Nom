@@ -37,23 +37,23 @@ jobs:
           echo "Listing ECR repositories..."
           aws ecr describe-repositories --region ap-southeast-2
 
-#      # Step 5: Build and Push Docker Image to ECR
-#      - name: Build and Push Docker Image
-#        run: |
-#          IMAGE_TAG=$(date +%s)
-#          REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
-#          docker buildx create --use
-#          docker buildx build \
-#            --platform linux/amd64,linux/arm64 \
-#            --build-arg AWS_REGION=ap-southeast-2 \
-#            --build-arg S3_BUCKET_NAME=treasure-hunt-env-bucket \
-#            --build-arg AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-#            --build-arg AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-#            -t $REPOSITORY_URI:latest .  \
-#            --push
-#          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-#          echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
-#        # Debug steps to verify Docker setup
+      # Step 5: Build and Push Docker Image to ECR
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG=$(date +%s)
+          REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg AWS_REGION=ap-southeast-2 \
+            --build-arg S3_BUCKET_NAME=treasure-hunt-env-bucket \
+            --build-arg AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -t $REPOSITORY_URI:latest .  \
+            --push
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
+        # Debug steps to verify Docker setup
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -73,37 +73,11 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
         working-directory: ./terraform
-#      # Step 7: Deploy to ECS
-#      - name: Deploy to ECS
-#        run: |
-#          CLUSTER_NAME="treasure-hunt-cluster"
-#          SERVICE_NAME="treasure-hunt-service"
-#
-#          echo "Fetching existing task definition..."
-#          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task | jq -r '.taskDefinition')
-#
-#          echo "Updating container image in the task definition..."
-#          UPDATED_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '
-#            del(
-#              .taskDefinitionArn,
-#              .revision,
-#              .status,
-#              .registeredAt,
-#              .registeredBy,
-#              .requiresAttributes,
-#              .compatibilities
-#            ) |
-#            .containerDefinitions[0].image = $IMAGE
-#          ')
-#
-#          echo "Saving updated task definition to temporary file..."
-#          echo "$UPDATED_TASK_DEFINITION" > updated-task-definition.json
-#
-#          echo "Registering new task definition..."
-#          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
-#
-#          echo "Updating ECS service with the new task definition..."
-#          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
-#        env:
-#          IMAGE_TAG: ${{ env.IMAGE_TAG }}
-#          REPOSITORY_URI: ${{ env.REPOSITORY_URI }}
+      # Step 7: Deploy to ECS
+      - name: Updating ECS Service
+        run: |
+          CLUSTER_NAME="treasure-hunt-cluster"
+          SERVICE_NAME="treasure-hunt-service"
+
+          echo "Updating ECS service with the new task definition..."
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
