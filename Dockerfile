@@ -1,14 +1,15 @@
 # Use Node.js as the base image
-FROM --platform=linux/arm64 arm64v8/node:20
+FROM node:18-alpine
 
-# Install pipx using apt and other necessary packages
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv pipx && \
+RUN apk add --no-cache python3 py3-pip && \
     python3 --version && pip3 --version
-
-# Install AWS CLI using pipx
-RUN pipx install awscli && \
+# Install AWS CLI
+RUN pip install --break-system-packages awscli && \
     aws --version
+
+
+# Verify AWS CLI installation
+RUN aws --version
 
 # Set working directory
 WORKDIR /app
