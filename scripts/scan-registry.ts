@@ -1,4 +1,3 @@
-// scripts/scan-registry.ts
 import { RegistryScanner } from '@/lib/registry/scanner';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,10 +11,8 @@ async function findRoutes(dir: string, base = ''): Promise<string[]> {
     const relativePath = path.join(base, entry.name);
 
     if (entry.isDirectory()) {
-      // Recursively scan directories
       routes.push(...await findRoutes(fullPath, relativePath));
     } else if (entry.name === 'page.tsx') {
-      // Found a page file
       routes.push(relativePath);
     }
   }
@@ -25,21 +22,17 @@ async function findRoutes(dir: string, base = ''): Promise<string[]> {
 
 async function main() {
   try {
-    // Set up paths
     const baseDir = path.join(process.cwd(), 'src', 'app');
     const registryDir = path.join(process.cwd(), 'registry');
 
-    // Initialize scanner
     const scanner = new RegistryScanner(baseDir, registryDir);
 
-    // Find all routes
     console.log('Finding routes...');
     const routes = await findRoutes(baseDir);
 
     console.log(`Found ${routes.length} routes to scan:\n${routes.join('\n')}\n`);
     console.log('Starting registry scan...\n');
 
-    // Process each route
     for (const route of routes) {
       try {
         console.log(`Scanning route: ${route}`);
@@ -57,7 +50,6 @@ async function main() {
   }
 }
 
-// Run the scanner
 main().catch((error) => {
   console.error('Unhandled error:', error);
   process.exit(1);

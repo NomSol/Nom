@@ -1,4 +1,3 @@
-// lib/registry/scanner.ts
 import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import * as t from '@babel/types';
@@ -40,7 +39,6 @@ export class RegistryScanner {
             return child.expression.quasis[0].value.raw;
           }
         }
-        // Handle JSXSpreadChild and JSXFragment
         return '';
       })
       .filter(text => text.length > 0)
@@ -91,13 +89,10 @@ export class RegistryScanner {
       ? openingElement.name.name 
       : 'Unknown';
 
-    // Extract text content
     const text = this.extractTextContent(node.children);
     
-    // Extract accessibility attributes
     const accessibility = this.extractAccessibilityInfo(openingElement.attributes);
 
-    // Extract button text if it's a button
     let buttonText = '';
     if (elementName.toLowerCase() === 'button' || 
         (accessibility.role === 'button') || 
@@ -105,7 +100,6 @@ export class RegistryScanner {
       buttonText = text;
     }
 
-    // Handle onClick or similar handlers
     const eventHandlers: string[] = [];
     openingElement.attributes.forEach(attr => {
       if (t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name)) {
@@ -116,7 +110,6 @@ export class RegistryScanner {
       }
     });
 
-    // Extract important link information
     let linkInfo = '';
     if (elementName.toLowerCase() === 'a' || elementName === 'Link') {
       openingElement.attributes.forEach(attr => {
@@ -158,7 +151,6 @@ export class RegistryScanner {
 
       traverse(ast, {
         JSXElement: (path) => {
-          // Only process top-level components
           if (path.parent && !t.isJSXElement(path.parent)) {
             const component = this.extractComponentInfo(path.node);
             components.push(component);
@@ -195,7 +187,6 @@ export class RegistryScanner {
   }
 
   private async saveRegistry(routePath: string, registry: RouteRegistry) {
-    // Normalize path separators and create a flat filename
     const normalizedPath = routePath.replace(/[\\/]+/g, '_');
     const registryPath = path.join(this.registryDir, `${normalizedPath}.registry.json`);
     
