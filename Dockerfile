@@ -1,9 +1,10 @@
 # Use Node.js as the base image
 FROM node:18-alpine
 
+RUN apk add --no-cache python3 py3-pip && \
+    python3 --version && pip3 --version
 # Install AWS CLI
-RUN apk add --no-cache curl python3 py3-pip && \
-    pip install --break-system-packages awscli && \
+RUN pip install --break-system-packages awscli && \
     aws --version
 
 
