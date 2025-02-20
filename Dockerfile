@@ -7,10 +7,6 @@ RUN apk add --no-cache python3 py3-pip && \
 RUN pip install --break-system-packages awscli && \
     aws --version
 
-
-# Verify AWS CLI installation
-RUN aws --version
-
 # Set working directory
 WORKDIR /app
 
