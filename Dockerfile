@@ -1,17 +1,18 @@
 # Use Node.js as the base image
 FROM --platform=linux/arm64 arm64v8/node:20
 
+# Update package lists and install required tools
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
+    apt-get install -y python3 python3-pip python3-venv && \
     python3 --version && pip3 --version
 
-# Install AWS CLI
-RUN pip install awscli && \
+# Install pipx, a tool to run Python applications in isolated environments
+RUN pip3 install pipx && \
+    pipx ensurepath
+
+# Install AWS CLI using pipx
+RUN pipx install awscli && \
     aws --version
-
-
-# Verify AWS CLI installation
-RUN aws --version
 
 # Set working directory
 WORKDIR /app
