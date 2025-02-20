@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '@/hooks/use-user';
-import { useMatchActions, useWaitingMatches } from '@/hooks/use-match';
+import { useMatchActions, useWaitingMatches, useCurrentMatch, useCheckMatchStatus, useMatch } from '@/hooks/use-match';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,157 +19,238 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import MatchDetail from './match-detail';
 
 const MatchMaking = () => {
   const router = useRouter();
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { createMatch, addTeamMember, updateTeamPlayers,leaveMatch,deleteMatch } = useMatchActions();
-  const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(
-    selectedSize ? `${selectedSize}v${selectedSize}` : ''
-  );
-
-  if (isLoadingProfile) {
-    return (
-      <div className="text-center py-8">
-        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
-        <p>加载中...</p>
-      </div>
-    );
-  }
-
-  // if (!profile) {
-  //   return (
-  //     <Alert variant="destructive">
-  //       <AlertDescription>
-  //         请先登录
-  //       </AlertDescription>
-  //     </Alert>
-  //   );
-  // }
-
-    // 获取当前用户的等待中的比赛
-    const currentMatch = waitingMatches?.find(match =>
-      match.match_teams.some(team =>
-        team.match_members.some(member => member.user_id === profile?.id)
-      )
-    );
+  const [isMatching, setIsMatching] = useState(false);
+  const { currentMatchId, setCurrentMatch, clearCurrentMatch } = useCurrentMatch();
+  const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch, checkExistingMatch, cancelMatch} = useMatchActions();
   
-    // 检查用户是否是创建者
-    const isCreator = currentMatch?.match_teams.some(team =>
-      team.match_members.length > 0 &&
-      team.match_members[0].user_id === profile?.id
-    );
+  const matchType = !isMatching && selectedSize ? `${selectedSize}v${selectedSize}` : '';
+  const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(matchType);
 
-    const handleCancelMatch = async () => {
-      if (!currentMatch || !profile) return;
-  
-      try {
-        if (isCreator) {
-          // 如果是创建者，删除整个比赛
-          await deleteMatch.mutateAsync(currentMatch.id);
-        } else {
-          // 如果是加入者，只移除自己
-          const team = currentMatch.match_teams.find(team =>
-            team.match_members.some(member => member.user_id === profile.id)
-          );
-          
-          if (team) {
-            await leaveMatch.mutateAsync({
-              match_id: currentMatch.id,
-              user_id: profile.id
-            });
-            
-            // 更新队伍当前人数
-            await updateTeamPlayers.mutateAsync({
-              team_id: team.id,
-              current_players: team.current_players - 1
-            });
-          }
-        }
-  
-        router.push('/main/match');
-      } catch (error) {
-        console.error('Failed to cancel match:', error);
-        setError('取消匹配失败，请重试');
+  // Get current match data
+  const { data: currentMatchData, isLoading: isLoadingMatch } = useMatch(currentMatchId || '');
+
+  // Check if user is already in a match
+  const verifyExistingMatch = useCallback(async () => {
+    if (!profile?.id) return false;
+
+    try {
+      // First check using the API
+      const existingMatch = await checkExistingMatch(profile.id);
+      
+      if (existingMatch) {
+        console.log('Found existing match:', existingMatch.id);
+        setIsMatching(true);
+        setCurrentMatch(existingMatch.id);
+        setSelectedSize(parseInt(existingMatch.match_type.split('v')[0]));
+        return true;
       }
+
+      // Then check waiting matches
+      if (waitingMatches) {
+        const matchInWaiting = waitingMatches.find(match => 
+          Array.isArray(match.match_teams) && 
+          match.match_teams.some(team =>
+            Array.isArray(team.match_members) &&
+            team.match_members.some(member => member.user_id === profile.id)
+          )
+        );
+
+        if (matchInWaiting) {
+          console.log('Found match in waiting:', matchInWaiting.id);
+          setIsMatching(true);
+          setCurrentMatch(matchInWaiting.id);
+          setSelectedSize(parseInt(matchInWaiting.match_type.split('v')[0]));
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking existing match:', error);
+      return false;
+    }
+  }, [profile?.id, waitingMatches, setCurrentMatch, checkExistingMatch]);
+
+  // Initialize check for existing match
+  useEffect(() => {
+    verifyExistingMatch();
+  }, [verifyExistingMatch]);
+
+  // Check match status
+  const { data: matchStatus } = useCheckMatchStatus(currentMatchId);
+
+  // Watch for match status changes
+  useEffect(() => {
+    if (matchStatus?.treasure_matches_by_pk) {
+      const status = matchStatus.treasure_matches_by_pk.status;
+      if (status === 'matching') {
+        setIsMatching(true);
+      } else if (status === 'cancelled' || status === 'finished') {
+        setIsMatching(false);
+        clearCurrentMatch();
+        setSelectedSize(null);
+      }
+    }
+  }, [matchStatus, clearCurrentMatch]);
+
+  // Component cleanup
+  useEffect(() => {
+    const cleanup = () => {
+      setIsMatching(false);
+      clearCurrentMatch();
+      setSelectedSize(null);
     };
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', cleanup);
+      return () => {
+        window.removeEventListener('beforeunload', cleanup);
+        if (isMatching) {
+          cleanup();
+        }
+      };
+    }
+  }, [isMatching, clearCurrentMatch]);
+
+  const handleCancelMatch = async () => {
+    if (!currentMatchId || !profile) return;
+  
+    try {
+      setError(null);
+      await cancelMatch.mutateAsync({
+        matchId: currentMatchId,
+        userId: profile.id
+      });
+      
+      // Only update local state if mutation succeeded
+      setIsMatching(false);
+      setSelectedSize(null);
+    } catch (error) {
+      console.error('Failed to cancel match:', error);
+      setError(error instanceof Error ? error.message : 'Failed to cancel match, please try again');
+    }
+  };
+  
   const handleMatchStart = async (size: number) => {
     try {
-      if (!profile) {
-        setError('请先登录');
+      if (!profile?.id) {
+        setError('Please log in first');
         return;
       }
 
-      if (currentMatch) {
-        setError('你已经在一个比赛中，请先退出当前比赛');
+      const hasExistingMatch = await verifyExistingMatch();
+      if (hasExistingMatch) {
+        setError('You are already in a match');
         return;
       }
 
       setError(null);
-      console.log('Starting match...');
-      const matchType = `${size}v${size}`;
+      setSelectedSize(size);
+      setIsMatching(true);
+      const newMatchType = `${size}v${size}`;
 
-      // 查找可加入的对局
-      const availableMatch = waitingMatches?.find(match => {
-        return match.match_teams.some(team => 
+      const availableMatch = waitingMatches?.find(match => 
+        match.status === 'matching' &&
+        match.match_type === newMatchType &&
+        Array.isArray(match.match_teams) &&
+        match.match_teams.some(team =>
           team.current_players < team.max_players &&
+          Array.isArray(team.match_members) &&
           !team.match_members.some(member => member.user_id === profile.id)
-        );
-      });
+        )
+      );
 
-      if (availableMatch) {
-        // 找到人数最少的队伍
+      if (availableMatch && Array.isArray(availableMatch.match_teams)) {
         const teamToJoin = availableMatch.match_teams
           .filter(team => team.current_players < team.max_players)
           .sort((a, b) => a.current_players - b.current_players)[0];
 
         if (teamToJoin) {
-          // 加入队伍
-          await addTeamMember.mutateAsync({
-            object: {
-              match_id: availableMatch.id,
+          try {
+            await addTeamMember.mutateAsync({
+              object: {
+                match_id: availableMatch.id,
+                team_id: teamToJoin.id,
+                user_id: profile.id
+              }
+            });
+
+            await updateTeamPlayers.mutateAsync({
               team_id: teamToJoin.id,
-              user_id: profile.id
+              current_players: teamToJoin.current_players + 1
+            });
+
+            setCurrentMatch(availableMatch.id);
+          } catch (error) {
+            if (error instanceof Error && error.message === 'Team is full') {
+              setError('This team is already full, please try another match');
+              setIsMatching(false);
+            } else {
+              throw error;
             }
-          });
-
-          // 更新队伍人数
-          await updateTeamPlayers.mutateAsync({
-            team_id: teamToJoin.id,
-            current_players: teamToJoin.current_players + 1
-          });
-
-          router.push(`/main/match/detail`);
+          }
         }
       } else {
-        // 创建新对局
         const result = await createMatch.mutateAsync({
           object: {
-            match_type: matchType,
+            match_type: newMatchType,
             required_players_per_team: size,
             user_id: profile.id
           }
         });
 
         if (result?.id) {
-          router.push('/main/match/detail');
+          setCurrentMatch(result.id);
         } else {
-          throw new Error('创建对局失败');
+          throw new Error('Failed to create match');
         }
       }
     } catch (error) {
       console.error('Failed to start/join match:', error);
-      setError('匹配失败，请重试');
+      setIsMatching(false);
+      setError(error instanceof Error ? error.message : 'Match failed, please try again');
     }
   };
+
+  if (isLoadingProfile) {
+    return (
+      <div className="text-center py-8">
+        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Please log in first</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const isMatchAvailable = (size: number) => {
+    return !isMatching && waitingMatches?.some(m =>
+      m.match_type === `${size}v${size}` &&
+      Array.isArray(m.match_teams) &&
+      m.match_teams.some(t => t.current_players < t.max_players)
+    );
+  };
+
+  const shouldShowMatchDetail = Boolean(currentMatchId) || isMatching;
+  const isLoadingMatchData = isLoadingMatch && currentMatchId;
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <h2 className="text-2xl font-bold text-center">寻宝对战</h2>
+        <h2 className="text-2xl font-bold text-center">Treasure Hunt Battle</h2>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -178,49 +259,56 @@ const MatchMaking = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
-          {currentMatch ? (
+
+          {shouldShowMatchDetail ? (
             <div className="space-y-4">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">当前匹配中</h3>
-                <p className="text-gray-500">
-                  {currentMatch.match_type} - 等待玩家加入 
-                  ({currentMatch.match_teams.reduce((sum, team) => sum + team.current_players, 0)}/
-                  {currentMatch.match_teams.reduce((sum, team) => sum + team.max_players, 0)})
-                </p>
-              </div>
-              
+              {/* Cancel Match Button */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     className="w-full"
                     disabled={leaveMatch.isPending || deleteMatch.isPending}
                   >
-                    {leaveMatch.isPending || deleteMatch.isPending ? '取消中...' : '取消匹配'}
+                    {leaveMatch.isPending || deleteMatch.isPending ? 'Canceling...' : 'Cancel Match'}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>确认取消匹配？</AlertDialogTitle>
+                    <AlertDialogTitle>Confirm Cancel Match?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {isCreator 
-                        ? '作为创建者取消将结束整个比赛' 
-                        : '你将退出当前比赛'
+                      {Array.isArray(currentMatchData?.match_teams) && 
+                      currentMatchData.match_teams.some(team => 
+                        Array.isArray(team.match_members) &&
+                        team.match_members[0]?.user_id === profile.id
+                      )
+                        ? 'As the creator, canceling will end the entire match'
+                        : 'You will exit the current match'
                       }
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleCancelMatch}>
-                      确认
+                      Confirm
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+
+              {/* Loading State */}
+              {isLoadingMatchData ? (
+                <div className="text-center py-8">
+                  <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
+                  <p>Loading match information...</p>
+                </div>
+              ) : currentMatchId ? (
+                <MatchDetail matchId={currentMatchId} />
+              ) : null}
             </div>
           ) : (
             <>
+              {/* Match Selection UI */}
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 5].map((size) => (
                   <Button
@@ -228,17 +316,14 @@ const MatchMaking = () => {
                     onClick={() => handleMatchStart(size)}
                     variant={selectedSize === size ? "default" : "outline"}
                     className="h-24 relative"
-                    disabled={createMatch.isPending || addTeamMember.isPending}
+                    disabled={isMatching || createMatch.isPending || addTeamMember.isPending}
                   >
                     <div className="text-center">
                       <Users className="h-8 w-8 mb-2 mx-auto" />
                       <span className="block">{size} vs {size}</span>
-                      {waitingMatches?.some(m => 
-                        m.match_type === `${size}v${size}` && 
-                        m.match_teams.some(t => t.current_players < t.max_players)
-                      ) && (
+                      {isMatchAvailable(size) && (
                         <span className="absolute bottom-2 left-0 right-0 text-xs text-green-500">
-                          有比赛等待中
+                          Match available
                         </span>
                       )}
                     </div>
@@ -246,15 +331,16 @@ const MatchMaking = () => {
                 ))}
               </div>
 
+              {/* Match Creation Loading State */}
               {(createMatch.isPending || addTeamMember.isPending) && (
                 <div className="text-center py-4">
                   <Timer className="animate-spin h-6 w-6 mx-auto mb-2" />
-                  <p>正在匹配中...</p>
+                  <p>Matching...</p>
                 </div>
               )}
 
               <div className="text-sm text-gray-500 text-center">
-                选择对战类型开始匹配
+                Select match type to start matching
               </div>
             </>
           )}

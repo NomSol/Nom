@@ -14,25 +14,24 @@ import { useToast } from "@/components/ui/toaster";
 import { useTreasures } from "@/hooks/use-treasure";
 
 interface VerifyTreasureDialogProps {
-  treasureId: string;
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
+  treasureId: string; // ID of the treasure to verify
+  isOpen: boolean; // Whether the dialog is open
+  onClose: () => void; // Function to close the dialog
+  onSuccess?: () => void; // Optional callback for successful verification
 }
 
 interface VerifyTreasureResponse {
-    update_treasures: {
-      affected_rows: number;
-      returning: Array<{
-        id: string;
-        name: string;
-        points: number;
-        verification_code: string;
-        finder_id: string;
-      }>;
-    };
-  }
-  
+  update_treasures: {
+    affected_rows: number; // Number of rows affected by the update
+    returning: Array<{
+      id: string; // Treasure ID
+      name: string; // Treasure name
+      points: number; // Points awarded for finding the treasure
+      verification_code: string; // Verification code for the treasure
+      finder_id: string; // ID of the user who found the treasure
+    }>;
+  };
+}
 
 export function VerifyTreasureDialog({ 
   treasureId,
@@ -40,38 +39,40 @@ export function VerifyTreasureDialog({
   onClose,
   onSuccess
 }: VerifyTreasureDialogProps) {
-  const [code, setCode] = useState('');
-  const { verifyTreasure } = useTreasures();
-  const { toast } = useToast();
+  const [code, setCode] = useState(''); // State for the verification code
+  const { verifyTreasure } = useTreasures(); // Hook for verifying treasures
+  const { toast } = useToast(); // Hook for displaying toast notifications
 
+  // Handle verification of the treasure
   const handleVerify = async () => {
     try {
       const result = await verifyTreasure.mutateAsync({
-          id: treasureId,
-          verification_code: code,
-          finder_id: ''
-      }) as VerifyTreasureResponse;  // 添加类型断言
+        id: treasureId,
+        verification_code: code,
+        finder_id: '', // Finder ID is not used in this example
+      }) as VerifyTreasureResponse; // Type assertion for the response
 
+      // Check if the treasure was successfully verified
       if (result.update_treasures?.affected_rows > 0) {
         const verifiedTreasure = result.update_treasures.returning[0];
         toast({
-          title: "验证成功！",
-          description: `恭喜你找到了宝藏！获得 ${verifiedTreasure.points} 积分`,
+          title: "Verification Successful!",
+          description: `Congratulations! You found the treasure and earned ${verifiedTreasure.points} points.`,
         });
-        onSuccess?.();
-        onClose();
+        onSuccess?.(); // Trigger the onSuccess callback if provided
+        onClose(); // Close the dialog
       } else {
         toast({
-          title: "验证失败",
-          description: "验证码错误或宝藏已被找到",
+          title: "Verification Failed",
+          description: "Invalid verification code or the treasure has already been found.",
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error('Verification error:', error);
       toast({
-        title: "验证失败",
-        description: "请确认验证码是否正确",
+        title: "Verification Failed",
+        description: "Please ensure the verification code is correct.",
         variant: "destructive",
       });
     }
@@ -81,17 +82,17 @@ export function VerifyTreasureDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>验证宝藏</DialogTitle>
+          <DialogTitle>Verify Treasure</DialogTitle>
           <DialogDescription>
-            请输入宝藏验证码来证明你找到了这个宝藏
+            Enter the treasure verification code to prove you found this treasure.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <Input
-            placeholder="请输入6位数字验证码"
+            placeholder="Enter 6-digit verification code"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} // Allow only digits and limit to 6 characters
             maxLength={6}
             type="number"
             pattern="\d*"
@@ -103,13 +104,13 @@ export function VerifyTreasureDialog({
             variant="ghost"
             onClick={onClose}
           >
-            取消
+            Cancel
           </Button>
           <Button
             onClick={handleVerify}
-            disabled={code.length !== 6 || verifyTreasure.isPending}
+            disabled={code.length !== 6 || verifyTreasure.isPending} // Disable the button if the code is invalid or verification is pending
           >
-            验证
+            Verify
           </Button>
         </DialogFooter>
       </DialogContent>

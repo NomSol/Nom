@@ -1,32 +1,31 @@
 "use client";
 import React, { useState, useContext, useEffect } from "react";
 import { Plus, ChevronRight, ChevronDown } from "lucide-react";
-import { MapContext } from "./MapContext";
+import { MapContext } from "@/components/dashboard/MapContext";
+
 import { TreasureCreationForm } from "./TreansureCreationForm";
 import { useTreasures } from "@/hooks/use-treasure";
+import { Treasure } from "@/types/treasure";
 
-// 规范化经纬度函数
 function normalizeLongitude(longitude: number): number {
-  return ((longitude + 180) % 360) - 180; // 将经度限制在 -180 到 180 之间
+  return ((longitude + 180) % 360) - 180;
 }
 
 function normalizeLatitude(latitude: number): number {
   while (latitude > 90 || latitude < -90) {
-    if (latitude > 90) latitude = 180 - latitude; // 翻转超过 90 的纬度
-    if (latitude < -90) latitude = -180 - latitude; // 翻转小于 -90 的纬度
+    if (latitude > 90) latitude = 180 - latitude;
+    if (latitude < -90) latitude = -180 - latitude;
   }
   return latitude;
 }
 
 export function TreasureListDropdown() {
   const map = useContext(MapContext);
-
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-
-  // 使用 useTreasures 钩子从数据库加载宝藏数据
+  const [selectedTreasure, setSelectedTreasure] = useState<string | null>(null);
   const { treasures, isLoading, error } = useTreasures();
 
   const toggleCollapse = () => {
@@ -71,6 +70,28 @@ export function TreasureListDropdown() {
     const normalizedLng = normalizeLongitude(lng);
     setLatitude(normalizedLat.toString());
     setLongitude(normalizedLng.toString());
+  };
+
+  const handleTreasureClick = (treasure: Treasure) => {
+    if (!map) return;
+
+    const normalizedLat = normalizeLatitude(treasure.latitude);
+    const normalizedLng = normalizeLongitude(treasure.longitude);
+
+    // Fly to the treasure location
+    map.flyTo({
+      center: [normalizedLng, normalizedLat],
+      zoom: 15,
+      duration: 1500, // Smooth transition time, in milliseconds
+    });
+
+    // Set selected treasure to trigger highlight effect
+    setSelectedTreasure(treasure.id);
+
+    // Cancel highlighting after 3 seconds
+    setTimeout(() => {
+      setSelectedTreasure(null);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -123,7 +144,6 @@ export function TreasureListDropdown() {
                   </span>
                 )}
 
-                {/* 创建宝藏按钮 */}
                 <button
                   className="p-1 border rounded hover:bg-gray-100"
                   onClick={(e) => {
@@ -136,14 +156,19 @@ export function TreasureListDropdown() {
                 </button>
               </div>
 
-              {/* 列表区域：设置最大高度和溢出滚动 */}
-              <div className="max-h-64 overflow-y-auto border rounded">
+              {/* Add a custom scroll bar style container*/}
+              <div className="max-h-64 overflow-y-auto border rounded scrollbar-container">
                 <ul className="text-sm space-y-2 p-2">
                   {treasures &&
                     treasures.map((t) => (
                       <li
                         key={t.id}
-                        className="flex flex-col border rounded p-2 hover:bg-gray-50"
+                        className={`flex flex-col border rounded p-2 cursor-pointer transition-all duration-300 ${
+                          selectedTreasure === t.id
+                            ? "bg-blue-100 border-blue-500"
+                            : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => handleTreasureClick(t)}
                       >
                         <span className="font-medium">{t.name}</span>
                         <span className="text-xs text-muted-foreground">
@@ -169,6 +194,32 @@ export function TreasureListDropdown() {
           )}
         </div>
       )}
+
+      {/* add global style */}
+      <style jsx global>{`
+        .scrollbar-container {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e0 #edf2f7;
+        }
+
+        .scrollbar-container::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .scrollbar-container::-webkit-scrollbar-track {
+          background: #edf2f7;
+          border-radius: 3px;
+        }
+
+        .scrollbar-container::-webkit-scrollbar-thumb {
+          background-color: #cbd5e0;
+          border-radius: 3px;
+        }
+
+        .scrollbar-container::-webkit-scrollbar-thumb:hover {
+          background-color: #a0aec0;
+        }
+      `}</style>
     </div>
   );
 }
