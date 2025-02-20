@@ -1,5 +1,5 @@
 # Use Node.js as the base image
-FROM node:18-alpine
+FROM --platform=linux/arm64 arm64v8/node:20
 
 RUN apk add --no-cache python3 py3-pip && \
     python3 --version && pip3 --version
