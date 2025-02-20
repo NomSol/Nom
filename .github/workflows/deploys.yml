@@ -57,38 +57,53 @@ jobs:
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
         # Debug steps to verify Docker setup
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.4.0
 
-      # Step 7: Deploy to ECS
-      - name: Deploy to ECS
-        run: |
-          CLUSTER_NAME="treasure-hunt-cluster"
-          SERVICE_NAME="treasure-hunt-service"
+        # Step 4: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
 
-          echo "Fetching existing task definition..."
-          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task | jq -r '.taskDefinition')
+      # Step 5: Terraform Plan
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
 
-          echo "Updating container image in the task definition..."
-          UPDATED_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '
-            del(
-              .taskDefinitionArn,
-              .revision,
-              .status,
-              .registeredAt,
-              .registeredBy,
-              .requiresAttributes,
-              .compatibilities
-            ) |
-            .containerDefinitions[0].image = $IMAGE
-          ')
-
-          echo "Saving updated task definition to temporary file..."
-          echo "$UPDATED_TASK_DEFINITION" > updated-task-definition.json
-
-          echo "Registering new task definition..."
-          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
-
-          echo "Updating ECS service with the new task definition..."
-          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
-        env:
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
-          REPOSITORY_URI: ${{ env.REPOSITORY_URI }}
+      # Step 6: Terraform Apply
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+#      # Step 7: Deploy to ECS
+#      - name: Deploy to ECS
+#        run: |
+#          CLUSTER_NAME="treasure-hunt-cluster"
+#          SERVICE_NAME="treasure-hunt-service"
+#
+#          echo "Fetching existing task definition..."
+#          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task | jq -r '.taskDefinition')
+#
+#          echo "Updating container image in the task definition..."
+#          UPDATED_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '
+#            del(
+#              .taskDefinitionArn,
+#              .revision,
+#              .status,
+#              .registeredAt,
+#              .registeredBy,
+#              .requiresAttributes,
+#              .compatibilities
+#            ) |
+#            .containerDefinitions[0].image = $IMAGE
+#          ')
+#
+#          echo "Saving updated task definition to temporary file..."
+#          echo "$UPDATED_TASK_DEFINITION" > updated-task-definition.json
+#
+#          echo "Registering new task definition..."
+#          aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
+#
+#          echo "Updating ECS service with the new task definition..."
+#          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
+#        env:
+#          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+#          REPOSITORY_URI: ${{ env.REPOSITORY_URI }}

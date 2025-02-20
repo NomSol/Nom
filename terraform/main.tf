@@ -1,3 +1,13 @@
+terraform {
+  backend "s3" {
+    bucket         = "treasure-hunt-env-bucket"
+    key            = "terraform.tfstate"
+    region         = "ap-southeast-2"
+    dynamodb_table = "terraform-lock-table"
+    encrypt        = true
+  }
+}
+
 provider "aws" {
   region = "ap-southeast-2"
 }
@@ -44,6 +54,10 @@ resource "aws_cloudwatch_log_group" "ecs_treasure_hunt" {
     Name = "treasure-hunt-log-group"
   }
 }
+data "aws_ecr_image" "latest_image" {
+  repository_name = aws_ecr_repository.treasure_hunt_repo.name
+  image_tag       = "latest"
+}
 
 # ECS Task Definition
 resource "aws_ecs_task_definition" "treasure_hunt_task" {
@@ -53,10 +67,11 @@ resource "aws_ecs_task_definition" "treasure_hunt_task" {
   cpu                      = "256"  # 0.25 vCPU
   memory                   = "512"  # 512 MB
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
   container_definitions    = jsonencode([
     {
       name      = "treasure-hunt-container",
-      image     = aws_ecr_repository.treasure_hunt_repo.repository_url,
+      image     = "${aws_ecr_repository.treasure_hunt_repo.repository_url}@${data.aws_ecr_image.latest_image.image_digest}",
       cpu       = 256,
       memory    = 512,
       essential = true,
@@ -75,19 +90,24 @@ resource "aws_ecs_task_definition" "treasure_hunt_task" {
           awslogs-stream-prefix = "ecs"
         }
       }
+      command = [
+        "/bin/sh",
+        "-c",
+        "aws s3 cp s3://treasure-hunt-env-bucket/.env /app/.env && npm start"
+      ]
       environment = [
         {
-          name  = "NEXTAUTH_SECRET"
-          value = "ChIzB/4UPzCS5kuAbzSlrks83FednR7A2x41XKcQrJA="
+          name  = "AWS_REGION"
+          value = "ap-southeast-2"
         },
         {
-          name  = "NEXT_PUBLIC_SUPABASE_URL"
-          value = "https://zqjzqzqzqzqzqzqzqzqz.supabase.co"
+          name  = "S3_BUCKET_NAME"
+          value = "treasure-hunt-env-bucket"
         },
         {
-          name  = "NEXT_PUBLIC_SUPABASE_KEY"
-          value = "eyJvYjoiYjIwMzQwZjItZjQwZi00ZjQwLWIwZjQtZjQwZjQwZjQwZjQwIiwicCI6IjEwMzQwZjItZjQwZi00ZjQwLWIwZjQtZjQwZjQwZjQwZjQwIiwiaCI6IjQwZjQwLWIwZjQtZjQwZi00ZjQwLWIwZjQtZjQwZjQwZjQwZjQwIiwidCI6IjEwMzQwZjItZjQwZi00ZjQwLWIwZjQtZjQwZjQwZjQwZjQwIn0="
-        }
+          name  = "NEXTAUTH_URL"
+          value = "http://treasure-hunt-alb-549898391.ap-southeast-2.elb.amazonaws.com"
+        },
       ]
     }
   ])
@@ -133,9 +153,9 @@ resource "aws_ecs_service" "treasure_hunt_service" {
   task_definition = aws_ecs_task_definition.treasure_hunt_task.arn
 
   network_configuration {
-    subnets         = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
+    subnets         = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
     security_groups = [aws_security_group.ecs_security_group.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -212,11 +232,6 @@ resource "aws_route_table" "private_route_table" {
   vpc_id = aws_vpc.treasure_hunt_vpc.id
 }
 
-resource "aws_route" "private_nat_route" {
-  route_table_id         = aws_route_table.private_route_table.id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.treasure_hunt_nat_gateway.id
-}
 
 resource "aws_route_table_association" "private_subnet_1_association" {
   subnet_id      = aws_subnet.private_subnet_1.id
@@ -226,15 +241,6 @@ resource "aws_route_table_association" "private_subnet_1_association" {
 resource "aws_route_table_association" "private_subnet_2_association" {
   subnet_id      = aws_subnet.private_subnet_2.id
   route_table_id = aws_route_table.private_route_table.id
-}
-# Elastic IP for NAT Gateway
-resource "aws_eip" "nat_gateway_eip" {
-  domain = "vpc"
-}
-# NAT Gateway
-resource "aws_nat_gateway" "treasure_hunt_nat_gateway" {
-  subnet_id = aws_subnet.public_subnet_1.id
-  allocation_id = aws_eip.nat_gateway_eip.id
 }
 
 resource "aws_security_group" "alb_sg" {
@@ -294,10 +300,6 @@ resource "aws_lb_target_group" "ecs_target_group" {
     healthy_threshold   = 3
     unhealthy_threshold = 2
   }
-
-  # lifecycle {
-  #   prevent_destroy = true
-  # }
 }
 
 resource "aws_lb_listener" "ecs_listener" {
@@ -312,49 +314,64 @@ resource "aws_lb_listener" "ecs_listener" {
   depends_on = [aws_lb_target_group.ecs_target_group]
 }
 
-# CloudFront
-resource "aws_cloudfront_distribution" "ecs_cloudfront" {
-  origin {
-    domain_name = aws_lb.ecs_alb.dns_name
-    origin_id   = "ecs-alb-origin"
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
 
-  enabled             = true
-  default_root_object = "index.html"
+# secret
 
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "ecs-alb-origin"
-
-    forwarded_values {
-      query_string = true
-      cookies {
-        forward = "all"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
+resource "aws_s3_bucket" "env_bucket" {
+  bucket = "treasure-hunt-env-bucket"
+  acl    = "private"
 
   tags = {
-    Name = "treasure-hunt-cloudfront"
+    Name = "treasure-hunt-env"
   }
+}
+
+resource "aws_s3_bucket_object" "env_file" {
+  bucket = aws_s3_bucket.env_bucket.bucket
+  key    = ".env"
+  source = "../.env" # Adjust this to the location of your .env file
+  acl    = "private"
+}
+
+resource "aws_iam_policy" "ecs_s3_access" {
+  name = "ecs-s3-access"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["s3:GetObject"],
+        Resource = "${aws_s3_bucket.env_bucket.arn}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_s3_access_attachment" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.ecs_s3_access.arn
+}
+
+resource "aws_iam_role" "ecs_task_role" {
+  name = "treasure-hunt-ecs-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_role_policy" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_s3_access.arn
 }
