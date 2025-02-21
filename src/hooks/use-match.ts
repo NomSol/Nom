@@ -230,7 +230,6 @@ export function useMatchActions() {
 
   const createMatch = useMutation({
     mutationFn: async (variables: { object: CreateMatchInput }) => {
-      const is1v1 = variables.object.required_players_per_team === 1;
   
       // 1. 创建匹配
       const matchResponse = await graphqlClient.request<CreateMatchResponse>(
