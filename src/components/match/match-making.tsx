@@ -168,39 +168,82 @@ const handleMatchStart = async (size: number) => {
 
     // 检查等待中的匹配
     if (waitingMatches?.length) {
-      console.log('Examining waiting matches:', {
-        total: waitingMatches.length,
-        matches: waitingMatches.map(m => ({
-          id: m.id,
-          type: m.match_type,
-          status: m.status,
-          teams: m.match_teams?.map(t => ({
-            id: t.id,
-            number: t.team_number,
-            current: t.current_players,
-            max: t.max_players
+      console.log('=== Detailed matches examination ===');
+      waitingMatches.forEach(match => {
+        console.log('Match details:', {
+          id: match.id,
+          type: match.match_type,
+          status: match.status,
+          teamsCount: match.match_teams?.length,
+          teams: match.match_teams?.map(team => ({
+            id: team.id,
+            teamNumber: team.team_number,
+            currentPlayers: team.current_players,
+            maxPlayers: team.max_players,
+            membersDetail: team.match_members?.map(member => ({
+              id: member.id,
+              userId: member.user_id
+            }))
           }))
+        });
+      });
+    
+      // 筛选符合条件的匹配
+      const validMatches = waitingMatches.filter(match => {
+        const isMatchValid = 
+          match.status === 'matching' &&
+          match.match_type === newMatchType &&
+          Array.isArray(match.match_teams) &&
+          match.match_teams.length > 0;
+    
+        console.log('Match validation:', {
+          matchId: match.id,
+          isStatusValid: match.status === 'matching',
+          isTypeValid: match.match_type === newMatchType,
+          hasTeams: Array.isArray(match.match_teams) && match.match_teams.length > 0,
+          isValid: isMatchValid
+        });
+    
+        if (!isMatchValid) return false;
+    
+        const availableTeam = match.match_teams.find(team => {
+          const availability = {
+            teamId: team.id,
+            hasSpace: team.current_players < team.max_players,
+            notJoined: !team.match_members?.some(member => member.user_id === profile.id),
+            currentPlayers: team.current_players,
+            maxPlayers: team.max_players
+          };
+          console.log('Team availability check:', availability);
+          return availability.hasSpace && availability.notJoined;
+        });
+    
+        return Boolean(availableTeam);
+      });
+    
+      console.log('Valid matches result:', {
+        totalMatches: waitingMatches.length,
+        validCount: validMatches.length,
+        validMatches: validMatches.map(m => ({
+          id: m.id,
+          teamsCount: m.match_teams.length,
+          availableTeams: m.match_teams.filter(t => 
+            t.current_players < t.max_players && 
+            !t.match_members?.some(member => member.user_id === profile.id)
+          ).length
         }))
       });
-
-      // 筛选符合条件的匹配
-      const validMatches = waitingMatches.filter(match => 
-        match.status === 'matching' &&
-        match.match_type === newMatchType &&
-        Array.isArray(match.match_teams) &&
-        match.match_teams.some(team => 
-          team.current_players < team.max_players &&
-          !team.match_members.some(member => member.user_id === profile.id)
-        )
-      );
-
-      console.log('Valid matches found:', validMatches.length);
-
+    
+      // 尝试加入匹配
       for (const match of validMatches) {
-        const availableTeams = match.match_teams.filter(team => 
-          team.current_players < team.max_players &&
-          !team.match_members.some(member => member.user_id === profile.id)
-        ).sort((a, b) => a.current_players - b.current_players);
+        // 找到可加入的队伍
+        const availableTeams = match.match_teams
+          .filter(team => {
+            const hasSpace = team.current_players < team.max_players;
+            const notInTeam = !team.match_members?.some(member => member.user_id === profile.id);
+            return hasSpace && notInTeam;
+          })
+          .sort((a, b) => a.current_players - b.current_players);
 
         if (availableTeams.length > 0) {
           const teamToJoin = availableTeams[0];
@@ -208,6 +251,7 @@ const handleMatchStart = async (size: number) => {
           console.log('Attempting to join team:', {
             matchId: match.id,
             teamId: teamToJoin.id,
+            teamNumber: teamToJoin.team_number,
             current: teamToJoin.current_players,
             max: teamToJoin.max_players
           });
@@ -215,11 +259,7 @@ const handleMatchStart = async (size: number) => {
           try {
             setIsMatching(true);
 
-            await updateTeamPlayers.mutateAsync({
-              team_id: teamToJoin.id,
-              current_players: teamToJoin.current_players + 1
-            });
-
+            // 先加入成员
             await addTeamMember.mutateAsync({
               object: {
                 match_id: match.id,
@@ -228,9 +268,16 @@ const handleMatchStart = async (size: number) => {
               }
             });
 
+            // 再更新人数
+            await updateTeamPlayers.mutateAsync({
+              team_id: teamToJoin.id,
+              current_players: teamToJoin.current_players + 1
+            });
+
             console.log('Successfully joined match:', {
               matchId: match.id,
-              teamId: teamToJoin.id
+              teamId: teamToJoin.id,
+              teamNumber: teamToJoin.team_number
             });
 
             setCurrentMatch(match.id);
@@ -239,7 +286,7 @@ const handleMatchStart = async (size: number) => {
             console.error('Failed to join team:', {
               matchId: match.id,
               teamId: teamToJoin.id,
-              error
+              error: error instanceof Error ? error.message : 'Unknown error'
             });
             continue;
           }
