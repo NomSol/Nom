@@ -61,10 +61,11 @@ export default function MatchDetail({ matchId }: MatchDetailProps) {
   
   // Find the user's team and the opponent team
   const userTeam = teams.find(team => 
-    team.match_members?.some(member => member.user_id === profile.id)
+    Array.isArray(team.match_members) && team.match_members.some(member => member.user_id === profile.id)
   );
 
   const otherTeam = teams.find(team => team.id !== userTeam?.id);
+
 
   const formatTime = (timeString: string) => {
     return new Date(timeString).toLocaleString('en-US', {
