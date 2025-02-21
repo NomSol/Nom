@@ -174,17 +174,18 @@ const MatchMaking = () => {
 
         if (teamToJoin) {
           try {
+            
+            await updateTeamPlayers.mutateAsync({
+              team_id: teamToJoin.id,
+              current_players: teamToJoin.current_players + 1
+            });
+          
             await addTeamMember.mutateAsync({
               object: {
                 match_id: availableMatch.id,
                 team_id: teamToJoin.id,
                 user_id: profile.id
               }
-            });
-
-            await updateTeamPlayers.mutateAsync({
-              team_id: teamToJoin.id,
-              current_players: teamToJoin.current_players + 1
             });
 
             setCurrentMatch(availableMatch.id);
