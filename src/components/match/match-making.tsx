@@ -8,215 +8,308 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, Timer } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import MatchDetail from './match-detail';
+import { MatchingStatus } from './matching-status';
 
 const MatchMaking = () => {
-  const router = useRouter();
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMatching, setIsMatching] = useState(false);
   const { currentMatchId, setCurrentMatch, clearCurrentMatch } = useCurrentMatch();
-  const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch, checkExistingMatch, cancelMatch} = useMatchActions();
+  const { createMatch, addTeamMember, updateTeamPlayers, leaveMatch, deleteMatch, checkExistingMatch, cancelMatch } = useMatchActions();
   
-  const matchType = !isMatching && selectedSize ? `${selectedSize}v${selectedSize}` : '';
+  // 移除 isMatching 条件，让 subscription 始终能获取到匹配
+  const matchType = selectedSize ? `${selectedSize}v${selectedSize}` : '';
   const { data: waitingMatches, isLoading: isLoadingMatches } = useWaitingMatches(matchType);
-
-  // Get current match data
   const { data: currentMatchData, isLoading: isLoadingMatch } = useMatch(currentMatchId || '');
-
-  // Check if user is already in a match
-  const verifyExistingMatch = useCallback(async () => {
-    if (!profile?.id) return false;
-
-    try {
-      // First check using the API
-      const existingMatch = await checkExistingMatch(profile.id);
-      
-      if (existingMatch) {
-        console.log('Found existing match:', existingMatch.id);
-        setIsMatching(true);
-        setCurrentMatch(existingMatch.id);
-        setSelectedSize(parseInt(existingMatch.match_type.split('v')[0]));
-        return true;
-      }
-
-      // Then check waiting matches
-      if (waitingMatches) {
-        const matchInWaiting = waitingMatches.find(match => 
-          Array.isArray(match.match_teams) && 
-          match.match_teams.some(team =>
-            Array.isArray(team.match_members) &&
-            team.match_members.some(member => member.user_id === profile.id)
-          )
-        );
-
-        if (matchInWaiting) {
-          console.log('Found match in waiting:', matchInWaiting.id);
-          setIsMatching(true);
-          setCurrentMatch(matchInWaiting.id);
-          setSelectedSize(parseInt(matchInWaiting.match_type.split('v')[0]));
-          return true;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Error checking existing match:', error);
-      return false;
-    }
-  }, [profile?.id, waitingMatches, setCurrentMatch, checkExistingMatch]);
-
-  // Initialize check for existing match
-  useEffect(() => {
-    verifyExistingMatch();
-  }, [verifyExistingMatch]);
-
-  // Check match status
   const { data: matchStatus } = useCheckMatchStatus(currentMatchId);
 
-  // Watch for match status changes
+  // Debug logging
   useEffect(() => {
-    if (matchStatus?.treasure_matches_by_pk) {
-      const status = matchStatus.treasure_matches_by_pk.status;
-      if (status === 'matching') {
-        setIsMatching(true);
-      } else if (status === 'cancelled' || status === 'finished') {
-        setIsMatching(false);
-        clearCurrentMatch();
-        setSelectedSize(null);
-      }
+    console.log('Matching state:', {
+      isMatching,
+      selectedSize,
+      matchType,
+      currentMatchId,
+      hasWaitingMatches: Boolean(waitingMatches),
+      waitingMatchesCount: waitingMatches?.length
+    });
+
+    if (waitingMatches) {
+      console.log('Available matches:', waitingMatches.map(match => ({
+        id: match.id,
+        type: match.match_type,
+        status: match.status,
+        teams: Array.isArray(match.match_teams) ? match.match_teams.map(team => ({
+          id: team.id,
+          number: team.team_number,
+          current: team.current_players,
+          max: team.max_players,
+          members: Array.isArray(team.match_members) ? team.match_members.length : 0
+        })) : []
+      })));
     }
-  }, [matchStatus, clearCurrentMatch]);
+  }, [isMatching, selectedSize, matchType, currentMatchId, waitingMatches]);
 
-  // Component cleanup
-  useEffect(() => {
-    const cleanup = () => {
-      setIsMatching(false);
-      clearCurrentMatch();
-      setSelectedSize(null);
-    };
+  // Verify existing match
+const verifyExistingMatch = useCallback(async () => {
+  if (!profile?.id) {
+    console.log('No profile ID found for verification');
+    return false;
+  }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', cleanup);
-      return () => {
-        window.removeEventListener('beforeunload', cleanup);
-        if (isMatching) {
-          cleanup();
-        }
-      };
-    }
-  }, [isMatching, clearCurrentMatch]);
-
-  const handleCancelMatch = async () => {
-    if (!currentMatchId || !profile) return;
-  
-    try {
-      setError(null);
-      await cancelMatch.mutateAsync({
-        matchId: currentMatchId,
-        userId: profile.id
+  try {
+    console.log('Starting existing match verification for user:', profile.id);
+    const existingMatch = await checkExistingMatch(profile.id);
+    console.log('API existing match check result:', existingMatch);
+    
+    if (existingMatch) {
+      console.log('Found existing match via API:', {
+        matchId: existingMatch.id,
+        type: existingMatch.match_type,
+        status: existingMatch.status
       });
-      
-      // Only update local state if mutation succeeded
-      setIsMatching(false);
-      setSelectedSize(null);
-    } catch (error) {
-      console.error('Failed to cancel match:', error);
-      setError(error instanceof Error ? error.message : 'Failed to cancel match, please try again');
-    }
-  };
-  
-  const handleMatchStart = async (size: number) => {
-    try {
-      if (!profile?.id) {
-        setError('Please log in first');
-        return;
-      }
-
-      const hasExistingMatch = await verifyExistingMatch();
-      if (hasExistingMatch) {
-        setError('You are already in a match');
-        return;
-      }
-
-      setError(null);
-      setSelectedSize(size);
+      const matchSize = parseInt(existingMatch.match_type.split('v')[0]);
       setIsMatching(true);
-      const newMatchType = `${size}v${size}`;
+      setSelectedSize(matchSize);
+      setCurrentMatch(existingMatch.id);
+      return true;
+    }
 
-      const availableMatch = waitingMatches?.find(match => 
+    if (waitingMatches?.length) {
+      console.log('Checking waiting matches for user:', {
+        userId: profile.id,
+        waitingMatchesCount: waitingMatches.length,
+        waitingMatches: waitingMatches.map(m => ({
+          id: m.id,
+          type: m.match_type,
+          teams: m.match_teams?.length || 0
+        }))
+      });
+
+      const matchInWaiting = waitingMatches.find(match => {
+        const teams = Array.isArray(match.match_teams) ? match.match_teams : [];
+        console.log('Checking match teams:', {
+          matchId: match.id,
+          teamsCount: teams.length,
+          teamsData: teams.map(t => ({
+            id: t.id,
+            players: t.current_players,
+            max: t.max_players,
+            members: t.match_members?.length || 0
+          }))
+        });
+
+        return teams.some(team => {
+          const members = Array.isArray(team.match_members) ? team.match_members : [];
+          const userInTeam = members.some(member => member.user_id === profile.id);
+          console.log('Checking team members:', {
+            teamId: team.id,
+            membersCount: members.length,
+            userInTeam
+          });
+          return userInTeam;
+        });
+      });
+
+      if (matchInWaiting) {
+        console.log('Found user in waiting match:', {
+          matchId: matchInWaiting.id,
+          type: matchInWaiting.match_type,
+          teams: matchInWaiting.match_teams?.map(t => ({
+            id: t.id,
+            current: t.current_players,
+            max: t.max_players
+          }))
+        });
+        const matchSize = parseInt(matchInWaiting.match_type.split('v')[0]);
+        setIsMatching(true);
+        setSelectedSize(matchSize);
+        setCurrentMatch(matchInWaiting.id);
+        return true;
+      } else {
+        console.log('User not found in any waiting matches');
+      }
+    } else {
+      console.log('No waiting matches to check');
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error checking existing match:', error);
+    return false;
+  }
+}, [profile?.id, waitingMatches, setCurrentMatch, checkExistingMatch]);
+
+const handleMatchStart = async (size: number) => {
+  try {
+    if (!profile?.id) {
+      console.log('No profile ID found, cannot start match');
+      setError('Please log in first');
+      return;
+    }
+
+    console.log('Starting match process:', {
+      size,
+      userId: profile.id,
+      existingMatches: waitingMatches?.length
+    });
+
+    const hasExistingMatch = await verifyExistingMatch();
+    if (hasExistingMatch) {
+      setError('You are already in a match');
+      return;
+    }
+
+    setError(null);
+    setSelectedSize(size);
+    const newMatchType = `${size}v${size}`;
+
+    // 检查等待中的匹配
+    if (waitingMatches?.length) {
+      console.log('Examining waiting matches:', {
+        total: waitingMatches.length,
+        matches: waitingMatches.map(m => ({
+          id: m.id,
+          type: m.match_type,
+          status: m.status,
+          teams: m.match_teams?.map(t => ({
+            id: t.id,
+            number: t.team_number,
+            current: t.current_players,
+            max: t.max_players
+          }))
+        }))
+      });
+
+      // 筛选符合条件的匹配
+      const validMatches = waitingMatches.filter(match => 
         match.status === 'matching' &&
         match.match_type === newMatchType &&
         Array.isArray(match.match_teams) &&
-        match.match_teams.some(team =>
+        match.match_teams.some(team => 
           team.current_players < team.max_players &&
-          Array.isArray(team.match_members) &&
           !team.match_members.some(member => member.user_id === profile.id)
         )
       );
 
-      if (availableMatch && Array.isArray(availableMatch.match_teams)) {
-        const teamToJoin = availableMatch.match_teams
-          .filter(team => team.current_players < team.max_players)
-          .sort((a, b) => a.current_players - b.current_players)[0];
+      console.log('Valid matches found:', validMatches.length);
 
-        if (teamToJoin) {
+      for (const match of validMatches) {
+        const availableTeams = match.match_teams.filter(team => 
+          team.current_players < team.max_players &&
+          !team.match_members.some(member => member.user_id === profile.id)
+        ).sort((a, b) => a.current_players - b.current_players);
+
+        if (availableTeams.length > 0) {
+          const teamToJoin = availableTeams[0];
+          
+          console.log('Attempting to join team:', {
+            matchId: match.id,
+            teamId: teamToJoin.id,
+            current: teamToJoin.current_players,
+            max: teamToJoin.max_players
+          });
+
           try {
-            
+            setIsMatching(true);
+
             await updateTeamPlayers.mutateAsync({
               team_id: teamToJoin.id,
               current_players: teamToJoin.current_players + 1
             });
-          
+
             await addTeamMember.mutateAsync({
               object: {
-                match_id: availableMatch.id,
+                match_id: match.id,
                 team_id: teamToJoin.id,
                 user_id: profile.id
               }
             });
 
-            setCurrentMatch(availableMatch.id);
-          } catch (error) {
-            if (error instanceof Error && error.message === 'Team is full') {
-              setError('This team is already full, please try another match');
-              setIsMatching(false);
-            } else {
-              throw error;
-            }
-          }
-        }
-      } else {
-        const result = await createMatch.mutateAsync({
-          object: {
-            match_type: newMatchType,
-            required_players_per_team: size,
-            user_id: profile.id
-          }
-        });
+            console.log('Successfully joined match:', {
+              matchId: match.id,
+              teamId: teamToJoin.id
+            });
 
-        if (result?.id) {
-          setCurrentMatch(result.id);
-        } else {
-          throw new Error('Failed to create match');
+            setCurrentMatch(match.id);
+            return;
+          } catch (error) {
+            console.error('Failed to join team:', {
+              matchId: match.id,
+              teamId: teamToJoin.id,
+              error
+            });
+            continue;
+          }
         }
       }
-    } catch (error) {
-      console.error('Failed to start/join match:', error);
+
+      console.log('No suitable matches found, creating new match');
+    }
+
+    // 创建新匹配
+    console.log('Creating new match:', {
+      type: newMatchType,
+      size,
+      userId: profile.id
+    });
+
+    setIsMatching(true);
+    
+    const result = await createMatch.mutateAsync({
+      object: {
+        match_type: newMatchType,
+        required_players_per_team: size,
+        status: 'matching',
+        user_id: profile.id
+      }
+    });
+
+    if (result?.id) {
+      console.log('Successfully created new match:', {
+        matchId: result.id,
+        type: newMatchType,
+        userId: profile.id,
+        teams: result.match_teams
+      });
+      setCurrentMatch(result.id);
+    } else {
+      throw new Error('Failed to create match');
+    }
+
+  } catch (error) {
+    console.error('Match start/join failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      size,
+      userId: profile.id
+    });
+    setIsMatching(false);
+    setSelectedSize(null);
+    setError(error instanceof Error ? error.message : 'Match failed, please try again');
+  }
+};
+
+  const handleCancelMatch = async () => {
+    if (!currentMatchId || !profile) return;
+  
+    try {
       setIsMatching(false);
-      setError(error instanceof Error ? error.message : 'Match failed, please try again');
+      setSelectedSize(null);
+      clearCurrentMatch();
+
+      await cancelMatch.mutateAsync({
+        matchId: currentMatchId,
+        userId: profile.id
+      });
+    } catch (error) {
+      setIsMatching(true);
+      setSelectedSize(parseInt(currentMatchData?.match_type?.split('v')[0] || '0'));
+      setCurrentMatch(currentMatchId);
+      
+      console.error('Failed to cancel match:', error);
+      setError(error instanceof Error ? error.message : 'Failed to cancel match, please try again');
     }
   };
 
@@ -263,41 +356,15 @@ const MatchMaking = () => {
 
           {shouldShowMatchDetail ? (
             <div className="space-y-4">
-              {/* Cancel Match Button */}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    disabled={leaveMatch.isPending || deleteMatch.isPending}
-                  >
-                    {leaveMatch.isPending || deleteMatch.isPending ? 'Canceling...' : 'Cancel Match'}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Cancel Match?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {Array.isArray(currentMatchData?.match_teams) && 
-                      currentMatchData.match_teams.some(team => 
-                        Array.isArray(team.match_members) &&
-                        team.match_members[0]?.user_id === profile.id
-                      )
-                        ? 'As the creator, canceling will end the entire match'
-                        : 'You will exit the current match'
-                      }
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancelMatch}>
-                      Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button
+                variant="destructive"
+                className="w-full"
+                disabled={leaveMatch.isPending || deleteMatch.isPending}
+                onClick={handleCancelMatch}
+              >
+                {leaveMatch.isPending || deleteMatch.isPending ? 'Canceling...' : 'Cancel Match'}
+              </Button>
 
-              {/* Loading State */}
               {isLoadingMatchData ? (
                 <div className="text-center py-8">
                   <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
@@ -309,7 +376,6 @@ const MatchMaking = () => {
             </div>
           ) : (
             <>
-              {/* Match Selection UI */}
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 5].map((size) => (
                   <Button
@@ -332,7 +398,6 @@ const MatchMaking = () => {
                 ))}
               </div>
 
-              {/* Match Creation Loading State */}
               {(createMatch.isPending || addTeamMember.isPending) && (
                 <div className="text-center py-4">
                   <Timer className="animate-spin h-6 w-6 mx-auto mb-2" />
