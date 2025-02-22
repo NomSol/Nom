@@ -9,6 +9,8 @@ import { Treasure } from '@/types/treasure';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { VerifyTreasureDialog } from './verify-dialog';
+import { TreasureComments } from './treasure_comments';
+import { useTreasureComments } from '@/hooks/use-treasure-comments';
 
 interface TreasureCardProps {
   treasure: Treasure;
@@ -21,11 +23,13 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { comments, loading } = useTreasureComments(treasure.id);
   const { isLiked, likeTreasure, unlikeTreasure, getLikesCount } = useLikes(treasure.id);
   const liked = isLiked(treasure.id);
   const likesCount = getLikesCount(treasure.id);
   const isCreator = treasure.creator_id === profile?.id;
   const isFound = treasure.finder_id === profile?.id;
+
 
   // Format treasure ID to show only first 6 digits
   const shortId = treasure.id.slice(0, 6);
@@ -49,7 +53,6 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
 
   const handleLogsClick = () => {
     setShowLogs(!showLogs);
-    console.log('Logs clicked for treasure:', treasure.id);
   };
 
   return (
@@ -119,10 +122,13 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
             )}
             <Button 
               variant="outline"
-              className="bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 rounded-full px-4 text-sm h-8 min-w-[80px]"
+              className={cn(
+                "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 rounded-full px-4 text-sm h-8 min-w-[80px]",
+                showLogs && "bg-gray-200"
+              )}
               onClick={handleLogsClick}
             >
-              Logs
+              {loading ? 'Loading...' : `Logs (${comments?.length})`}
             </Button>
           </div>
           
@@ -163,10 +169,13 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
 
         {/* Logs Panel */}
         {showLogs && (
-          <div className="mt-3 p-2 bg-gray-50 rounded-lg text-sm">
-            <p className="text-gray-600">Treasure activity logs...</p>
+        <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between mb-2 pb-2 border-b">
+            <h3 className="text-sm font-medium">Comments</h3>
           </div>
-        )}
+          <TreasureComments treasureId={treasure.id} />
+        </div>
+      )}
       </div>
 
       <VerifyTreasureDialog
