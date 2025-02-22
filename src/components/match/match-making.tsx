@@ -10,6 +10,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, Timer } from 'lucide-react';
 import MatchDetail from './match-detail';
 import { MatchingStatus } from './matching-status';
+import { GetWaitingMatchesResponse } from '@/types/matches';
+import { graphqlClient } from '@/lib/graphql-client';
+import { GET_WAITING_MATCHES } from '@/graphql/matches';
 
 const MatchMaking = () => {
   const { profile, isLoading: isLoadingProfile } = useUserProfile();
@@ -150,161 +153,84 @@ const handleMatchStart = async (size: number) => {
       return;
     }
 
-    console.log('Starting match process:', {
-      size,
-      userId: profile.id,
-      existingMatches: waitingMatches?.length
-    });
+    setError(null);
+    setSelectedSize(size);
+    const newMatchType = `${size}v${size}`;
 
+    // 先检查已经存在的匹配
     const hasExistingMatch = await verifyExistingMatch();
     if (hasExistingMatch) {
       setError('You are already in a match');
       return;
     }
 
-    setError(null);
-    setSelectedSize(size);
-    const newMatchType = `${size}v${size}`;
+    // 强制等待并重新获取等待中的匹配
+    try {
+      const response = await graphqlClient.request<GetWaitingMatchesResponse>(
+        GET_WAITING_MATCHES, 
+        { matchType: newMatchType }
+      );
+      
+      const matches = response.treasure_matches;
+      console.log('Fetched waiting matches:', matches);
 
-    // 检查等待中的匹配
-    if (waitingMatches?.length) {
-      console.log('=== Detailed matches examination ===');
-      waitingMatches.forEach(match => {
-        console.log('Match details:', {
-          id: match.id,
-          type: match.match_type,
-          status: match.status,
-          teamsCount: match.match_teams?.length,
-          teams: match.match_teams?.map(team => ({
-            id: team.id,
-            teamNumber: team.team_number,
-            currentPlayers: team.current_players,
-            maxPlayers: team.max_players,
-            membersDetail: team.match_members?.map(member => ({
-              id: member.id,
-              userId: member.user_id
-            }))
-          }))
-        });
-      });
-    
-      // 筛选符合条件的匹配
-      const validMatches = waitingMatches.filter(match => {
-        const isMatchValid = 
+      if (matches && matches.length > 0) {
+        const availableMatch = matches.find(match => 
           match.status === 'matching' &&
           match.match_type === newMatchType &&
-          Array.isArray(match.match_teams) &&
-          match.match_teams.length > 0;
-    
-        console.log('Match validation:', {
-          matchId: match.id,
-          isStatusValid: match.status === 'matching',
-          isTypeValid: match.match_type === newMatchType,
-          hasTeams: Array.isArray(match.match_teams) && match.match_teams.length > 0,
-          isValid: isMatchValid
-        });
-    
-        if (!isMatchValid) return false;
-    
-        const availableTeam = match.match_teams.find(team => {
-          const availability = {
-            teamId: team.id,
-            hasSpace: team.current_players < team.max_players,
-            notJoined: !team.match_members?.some(member => member.user_id === profile.id),
-            currentPlayers: team.current_players,
-            maxPlayers: team.max_players
-          };
-          console.log('Team availability check:', availability);
-          return availability.hasSpace && availability.notJoined;
-        });
-    
-        return Boolean(availableTeam);
-      });
-    
-      console.log('Valid matches result:', {
-        totalMatches: waitingMatches.length,
-        validCount: validMatches.length,
-        validMatches: validMatches.map(m => ({
-          id: m.id,
-          teamsCount: m.match_teams.length,
-          availableTeams: m.match_teams.filter(t => 
-            t.current_players < t.max_players && 
-            !t.match_members?.some(member => member.user_id === profile.id)
-          ).length
-        }))
-      });
-    
-      // 尝试加入匹配
-      for (const match of validMatches) {
-        // 找到可加入的队伍
-        const availableTeams = match.match_teams
-          .filter(team => {
-            const hasSpace = team.current_players < team.max_players;
-            const notInTeam = !team.match_members?.some(member => member.user_id === profile.id);
-            return hasSpace && notInTeam;
-          })
-          .sort((a, b) => a.current_players - b.current_players);
+          match.match_teams?.some(team => 
+            team.current_players < team.max_players &&
+            !team.match_members?.some(member => member.user_id === profile.id)
+          )
+        );
 
-        if (availableTeams.length > 0) {
-          const teamToJoin = availableTeams[0];
-          
-          console.log('Attempting to join team:', {
-            matchId: match.id,
-            teamId: teamToJoin.id,
-            teamNumber: teamToJoin.team_number,
-            current: teamToJoin.current_players,
-            max: teamToJoin.max_players
-          });
+        if (availableMatch) {
+          console.log('Found available match to join:', availableMatch.id);
+          setIsMatching(true);
 
-          try {
-            setIsMatching(true);
+          const teamToJoin = availableMatch.match_teams.find(team => 
+            team.current_players < team.max_players &&
+            !team.match_members?.some(member => member.user_id === profile.id)
+          );
 
-            // 先加入成员
-            await addTeamMember.mutateAsync({
-              object: {
-                match_id: match.id,
+          if (teamToJoin) {
+            try {
+              // 加入队伍
+              await addTeamMember.mutateAsync({
+                object: {
+                  match_id: availableMatch.id,
+                  team_id: teamToJoin.id,
+                  user_id: profile.id
+                }
+              });
+
+              // 更新人数
+              await updateTeamPlayers.mutateAsync({
                 team_id: teamToJoin.id,
-                user_id: profile.id
-              }
-            });
+                current_players: teamToJoin.current_players + 1
+              });
 
-            // 再更新人数
-            await updateTeamPlayers.mutateAsync({
-              team_id: teamToJoin.id,
-              current_players: teamToJoin.current_players + 1
-            });
-
-            console.log('Successfully joined match:', {
-              matchId: match.id,
-              teamId: teamToJoin.id,
-              teamNumber: teamToJoin.team_number
-            });
-
-            setCurrentMatch(match.id);
-            return;
-          } catch (error) {
-            console.error('Failed to join team:', {
-              matchId: match.id,
-              teamId: teamToJoin.id,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            });
-            continue;
+              setCurrentMatch(availableMatch.id);
+              console.log('Successfully joined match:', availableMatch.id);
+              return;
+            } catch (error) {
+              console.error('Failed to join match:', error);
+            }
           }
         }
       }
-
-      console.log('No suitable matches found, creating new match');
+    } catch (error) {
+      console.error('Error fetching waiting matches:', error);
     }
 
-    // 创建新匹配
+    // 如果没有找到合适的匹配，创建新的
     console.log('Creating new match:', {
       type: newMatchType,
       size,
       userId: profile.id
     });
-
-    setIsMatching(true);
     
+    setIsMatching(true);
     const result = await createMatch.mutateAsync({
       object: {
         match_type: newMatchType,
@@ -315,23 +241,14 @@ const handleMatchStart = async (size: number) => {
     });
 
     if (result?.id) {
-      console.log('Successfully created new match:', {
-        matchId: result.id,
-        type: newMatchType,
-        userId: profile.id,
-        teams: result.match_teams
-      });
+      console.log('Successfully created new match:', result.id);
       setCurrentMatch(result.id);
     } else {
       throw new Error('Failed to create match');
     }
 
   } catch (error) {
-    console.error('Match start/join failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      size,
-      userId: profile.id
-    });
+    console.error('Match start/join failed:', error);
     setIsMatching(false);
     setSelectedSize(null);
     setError(error instanceof Error ? error.message : 'Match failed, please try again');

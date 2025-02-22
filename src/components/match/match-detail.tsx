@@ -116,23 +116,29 @@ export default function MatchDetail({ matchId }: MatchDetailProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {userTeam?.match_members?.map(member => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4" />
+              {Array.isArray(userTeam?.match_members) && userTeam.match_members.length > 0 ? (
+                userTeam.match_members.map(member => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <span>{member.user?.nickname}</span>
                     </div>
-                    <span>{member.user?.nickname}</span>
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <span>{member.individual_score ?? 0} points</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-yellow-500" />
-                    <span>{member.individual_score ?? 0} points</span>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-4">
+                  Loading team members...
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -153,23 +159,29 @@ export default function MatchDetail({ matchId }: MatchDetailProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {otherTeam?.match_members?.map(member => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4" />
+              {Array.isArray(otherTeam?.match_members) && otherTeam.match_members.length > 0 ? (
+                otherTeam.match_members.map(member => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <span>{member.user?.nickname}</span>
                     </div>
-                    <span>{member.user?.nickname}</span>
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <span>{member.individual_score ?? 0} points</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-yellow-500" />
-                    <span>{member.individual_score ?? 0} points</span>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-4">
+                  Waiting for opponent...
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { graphqlClient } from "@/lib/graphql-client";
 import { createClient } from 'graphql-ws';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { 
   Match, 
   CreateMatchInput, 
@@ -118,10 +118,11 @@ export function useCheckMatchStatus(matchId: string | null) {
 export function useMatch(matchId: string) {
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!matchId) return;
-
-    const unsubscribe = wsClient.subscribe(
+  // 将订阅逻辑移到 useMemo 中，避免重复订阅
+  const subscription = useMemo(() => {
+    if (!matchId) return undefined;
+    
+    return wsClient.subscribe(
       {
         query: MATCH_SUBSCRIPTION,
         variables: { matchId },
@@ -140,11 +141,16 @@ export function useMatch(matchId: string) {
         }
       },
     );
-
-    return () => {
-      unsubscribe();
-    };
   }, [matchId, queryClient]);
+
+  // 处理订阅的清理
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription();
+      }
+    };
+  }, [subscription]);
 
   return useQuery({
     queryKey: ["match", matchId],
