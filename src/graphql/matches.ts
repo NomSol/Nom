@@ -290,7 +290,7 @@ export const MATCH_SUBSCRIPTION = gql`
   }
 `;
 
-export const WAITING_MATCHES_SUBSCRIPTION = `
+export const WAITING_MATCHES_SUBSCRIPTION = gql`
   subscription OnWaitingMatchesUpdate($matchType: String!) {
     treasure_matches(
       where: {
