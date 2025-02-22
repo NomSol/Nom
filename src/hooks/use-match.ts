@@ -168,7 +168,7 @@ export function useMatch(matchId: string) {
         
         return {
           ...match,
-          match_teams: match.match_teams || []
+          match_teams: match.match_teams || [] // TODO: 这里是否可以去掉 || []
         };
       } catch (error) {
         console.error('Error fetching match details:', error);
