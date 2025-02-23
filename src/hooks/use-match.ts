@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { graphqlClient } from "@/lib/graphql-client";
 import { createClient } from 'graphql-ws';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { 
   Match, 
   CreateMatchInput, 
@@ -118,10 +118,11 @@ export function useCheckMatchStatus(matchId: string | null) {
 export function useMatch(matchId: string) {
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!matchId) return;
-
-    const unsubscribe = wsClient.subscribe(
+  // 将订阅逻辑移到 useMemo 中，避免重复订阅
+  const subscription = useMemo(() => {
+    if (!matchId) return undefined;
+    
+    return wsClient.subscribe(
       {
         query: MATCH_SUBSCRIPTION,
         variables: { matchId },
@@ -140,11 +141,16 @@ export function useMatch(matchId: string) {
         }
       },
     );
-
-    return () => {
-      unsubscribe();
-    };
   }, [matchId, queryClient]);
+
+  // 处理订阅的清理
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription();
+      }
+    };
+  }, [subscription]);
 
   return useQuery({
     queryKey: ["match", matchId],
@@ -162,7 +168,7 @@ export function useMatch(matchId: string) {
         
         return {
           ...match,
-          match_teams: match.match_teams || []
+          match_teams: match.match_teams || [] // TODO: 这里是否可以去掉 || []
         };
       } catch (error) {
         console.error('Error fetching match details:', error);
@@ -230,6 +236,8 @@ export function useMatchActions() {
 
   const createMatch = useMutation({
     mutationFn: async (variables: { object: CreateMatchInput }) => {
+  
+      // 1. 创建匹配
       const matchResponse = await graphqlClient.request<CreateMatchResponse>(
         CREATE_MATCH,
         {
@@ -240,6 +248,7 @@ export function useMatchActions() {
   
       const match = matchResponse.insert_treasure_matches_one;
   
+      // 2. 创建队伍 - 1v1 时设置 current_players 为 0
       const teamsResponse = await graphqlClient.request<CreateTeamResponse>(
         CREATE_TEAMS,
         {
@@ -248,7 +257,7 @@ export function useMatchActions() {
               match_id: match.id,
               team_number: 1,
               max_players: variables.object.required_players_per_team,
-              current_players: 1
+              current_players: 0  // 总是从0开始
             },
             {
               match_id: match.id,
@@ -261,13 +270,18 @@ export function useMatchActions() {
       );
   
       const firstTeam = teamsResponse.insert_match_teams.returning[0];
-      await graphqlClient.request<AddTeamMemberResponse>(ADD_TEAM_MEMBER, {
-        object: {
-          match_id: match.id,
-          team_id: firstTeam.id,
-          user_id: variables.object.user_id
+  
+      // 3. 让触发器来处理 current_players 的更新
+      await graphqlClient.request<AddTeamMemberResponse>(
+        ADD_TEAM_MEMBER,
+        {
+          object: {
+            match_id: match.id,
+            team_id: firstTeam.id,
+            user_id: variables.object.user_id
+          }
         }
-      });
+      );
   
       return match;
     },
@@ -317,7 +331,7 @@ export function useMatchActions() {
       try {
         // Get match details
         const matchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
-          GET_MATCH_DETAILS, 
+          GET_MATCH_DETAILS,
           { matchId }
         );
   
@@ -326,37 +340,59 @@ export function useMatchActions() {
           throw new Error('Match not found');
         }
   
+        // 将 match_teams 转换为数组形式
+        const teams = Array.isArray(match.match_teams) ? match.match_teams : [match.match_teams].filter(Boolean);
+  
         // 找到用户所在的队伍
-        const userTeam = match.match_teams.find(team => 
+        const userTeam = teams.find(team =>
+          Array.isArray(team.match_members) && 
           team.match_members.some(member => member.user_id === userId)
         );
-        
-        // 计算所有玩家数量
-        const totalPlayers = match.match_teams.reduce((sum, team) => 
-          sum + team.match_members.length, 0
+  
+        // 先执行离开操作
+        console.log('Player leaving match...');
+        const leaveResult = await graphqlClient.request(LEAVE_MATCH, {
+          matchId,
+          userId
+        });
+        console.log('Leave result:', leaveResult);
+  
+        // 再次获取最新的匹配数据
+        const updatedMatchResponse = await graphqlClient.request<GetMatchDetailsResponse>(
+          GET_MATCH_DETAILS,
+          { matchId }
         );
   
-        // 如果只有一个玩家，直接删除整个匹配
-        if (totalPlayers === 1) {
-          console.log('Last player leaving, deleting match:', matchId);
-          await graphqlClient.request(DELETE_MATCH, { matchId });
-        } else {
-          // 如果还有其他玩家，只是离开匹配
-          console.log('Player leaving match...');
-          
-          // 1. 移除该玩家
-          await graphqlClient.request(LEAVE_MATCH, {
-            matchId,
-            userId
+        const updatedMatch = updatedMatchResponse?.treasure_matches_by_pk;
+        if (!updatedMatch) {
+          return { success: true }; // 匹配已经不存在
+        }
+  
+        // 获取更新后的队伍数据
+        const updatedTeams = Array.isArray(updatedMatch.match_teams) ? 
+          updatedMatch.match_teams : 
+          [updatedMatch.match_teams].filter(Boolean);
+  
+        // 计算剩余玩家数量
+        const remainingPlayers = updatedTeams.reduce((sum, team) =>
+          sum + (Array.isArray(team.match_members) ? team.match_members.length : 0), 0
+        );
+  
+        console.log('Remaining players:', remainingPlayers);
+  
+        // 如果没有玩家了，删除整个匹配
+        if (remainingPlayers === 0) {
+          console.log('No players remaining, deleting match:', matchId);
+          const deleteResult = await graphqlClient.request(DELETE_MATCH, { matchId });
+          console.log('Delete result:', deleteResult);
+        }
+        // 如果还有玩家且用户离开前有所在的队伍，更新队伍人数
+        else if (userTeam) {
+          const updateResult = await graphqlClient.request(UPDATE_TEAM_PLAYERS, {
+            team_id: userTeam.id,
+            current_players: userTeam.current_players - 1
           });
-          
-          // 2. 更新队伍当前人数
-          if (userTeam) {
-            await graphqlClient.request(UPDATE_TEAM_PLAYERS, {
-              team_id: userTeam.id,
-              current_players: userTeam.current_players - 1
-            });
-          }
+          console.log('Update team result:', updateResult);
         }
   
         return { success: true };

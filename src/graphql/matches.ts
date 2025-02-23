@@ -290,7 +290,7 @@ export const MATCH_SUBSCRIPTION = gql`
   }
 `;
 
-export const WAITING_MATCHES_SUBSCRIPTION = `
+export const WAITING_MATCHES_SUBSCRIPTION = gql`
   subscription OnWaitingMatchesUpdate($matchType: String!) {
     treasure_matches(
       where: {
@@ -302,7 +302,7 @@ export const WAITING_MATCHES_SUBSCRIPTION = `
       match_type
       status
       required_players_per_team
-      match_teams {
+      match_teams(order_by: { team_number: asc }) {
         id
         team_number
         current_players
