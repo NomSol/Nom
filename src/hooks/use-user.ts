@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { UserProfile } from '@/types/user';
 import { UserProfileInput } from '@/types/user';
+import { GET_USER_BY_NICKNAME } from '@/graphql/user';
+import { graphqlClient } from '@/lib/graphql-client';
 
 export function useUserProfile(p0?: { enabled?: boolean; }) {
     const { data: session } = useSession();
@@ -37,7 +39,6 @@ export function useUserProfile(p0?: { enabled?: boolean; }) {
             if (!data.users[0] || data.users.length === 0) {
                 throw new Error('No user profile found');
             }
-            console.log("11111111111111111111111111111", data.users[0]);
             return data.users[0] as UserProfile; // 返回用户数据
 
         },
@@ -98,3 +99,24 @@ export async function modifyUserProfile(email: string, updates: Partial<UserProf
     const data = await response.json();
     return data;
 }
+
+export async function getUserByNickname(
+    nickname: string
+): Promise<any[]> {
+    try {
+        console.log('nickname in function:', nickname);
+        const response = await graphqlClient.request<any>(GET_USER_BY_NICKNAME, { nickname });
+        console.log('GraphQL query response:', response);
+
+        // 直接返回匹配到的用户数组
+        if (!response || !response.users) {
+            console.error('响应数据中没有 users 属性', response);
+            throw new Error('查询返回数据格式不正确');
+        }
+
+        return response.users;
+    } catch (error) {
+        console.error('检查昵称时出错:', error);
+        throw new Error('查询昵称失败');
+    }
+};

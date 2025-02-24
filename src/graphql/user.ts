@@ -38,3 +38,11 @@ export const UPDATE_USER_PROFILE = gql`
     }
   }
 `;
+
+export const GET_USER_BY_NICKNAME = gql`
+  query getUserByNickname($nickname: String!) {
+    users(where: { nickname: { _eq: $nickname } }) {
+      id
+    }
+  }
+`;
