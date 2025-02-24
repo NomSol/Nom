@@ -3,7 +3,7 @@ export interface UserProfile {
   id: string;
   nickname: string;
   avatar_url: string;
-  cath_id: string;
+  cath_id: number;
   ip_location?: string;
   description?: string;
   email?: string;
@@ -15,8 +15,7 @@ export interface UserProfile {
 export interface UserProfileInput {
   nickname: string;
   avatar_url: string;
-  cath_id: string;
   ip_location?: string;
   description?: string;
-  email?: string;
+  email: string;
 }

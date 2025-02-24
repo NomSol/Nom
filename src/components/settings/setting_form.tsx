@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState, useEffect } from 'react';
 import { UserProfileInput } from '@/types/user';
 import { useSession } from "next-auth/react";
-import { useUserProfile, createUserProfile, modifyUserProfile } from '@/hooks/use-user';
+import { useUserProfile, createUserProfile, modifyUserProfile, getUserByNickname } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 
 
@@ -15,14 +15,15 @@ export function SettingForm() {
     // 在组件中
     const router = useRouter();
     const { data: session, status } = useSession();
-    const { profile, isLoading, error } = useUserProfile({ enabled: true });
+    const { refetch, profile, isLoading, error } = useUserProfile({ enabled: true });
     const [isUpdating, setIsUpdating] = useState(false);
+    const [nicknameError, setNicknameError] = useState('');         //for nickname error to show on the page, use hook to automatically show
+    const [settingResult, setSettingResult] = useState('');         //for setting result to show on the page, use hook to automatically show
 
 
     const [formData, setFormData] = useState<UserProfileInput>({
         nickname: session?.user?.name || "treasure_hunter",
         avatar_url: session?.user?.image || "",
-        cath_id: "a12345678",
         ip_location: "Canberra, Australia",
         description: "",
         email: session?.user?.email || "",
@@ -36,7 +37,6 @@ export function SettingForm() {
                 ...prev,
                 nickname: profile.nickname || "treasure_hunter",
                 avatar_url: profile.avatar_url || session?.user?.image || "",
-                cath_id: profile.cath_id || "a12345678",
                 ip_location: profile.ip_location || "Canberra, Australia",
                 description: profile.description || "",
                 email: profile.email || session?.user?.email || "",
@@ -49,21 +49,45 @@ export function SettingForm() {
         e.preventDefault();
 
         try {
+            // 检查昵称是否已存在
+            console.log('formData:', formData.nickname);
+            const usersWithNickname = await getUserByNickname(formData.nickname);
+            console.log('usersWithNickname:', usersWithNickname);
+
+            // 如果昵称已存在且不是当前用户
+            if (usersWithNickname.length > 0 && (!profile || usersWithNickname[0].id !== profile.id)) {
+                setNicknameError('Nickname already exists');
+                setIsUpdating(false);
+                setSettingResult('failed');
+                return; // 直接退出，阻止后续代码执行
+            }
+
+
             if (profile) {
                 // 更新用户信息
                 if (formData.email) {
                     await modifyUserProfile(formData.email, formData);
+                    setNicknameError('');
                     console.log('User profile modify successfully');
+                    setSettingResult('success');
+                    // 更新成功后重新获取用户数据
+                    await refetch();
                 } else {
+                    setSettingResult('failed');
                     throw new Error('Email is required to modify user profile');
                 }
             } else {
                 // 创建用户信息
                 await createUserProfile(formData);
+                setNicknameError('');
                 console.log('User profile created successfully');
+                setSettingResult('success');
+                // 更新成功后重新获取用户数据
+                await refetch();
             }
         } catch (error) {
             console.error('Failed to save user profile:', error);
+            setSettingResult('failed');
         } finally {
             setIsUpdating(false); // 更新完成
         }
@@ -107,6 +131,21 @@ export function SettingForm() {
                 <label className="text-sm font-medium">
                     {formData.email}
                 </label>
+
+                {/*cath id:创建了之后才有 */}
+                <label className="text-sm font-medium">
+                    cathid: {profile?.cath_id || ""}
+                </label>
+
+
+                {/*当settingResult不是空时，显示成功或失败的提示*/}
+                {settingResult !== '' &&
+                    <div
+                        className={`text-sm font-medium ${settingResult === 'success' ? 'text-green-600' : 'text-red-600'}`}
+                    >
+                        {settingResult === 'success' ? 'Settings saved successfully' : 'Failed to save settings'}
+                    </div>
+                }
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,17 +158,7 @@ export function SettingForm() {
                         placeholder="Enter your nickname"
                         required
                     />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Cath ID *</label>
-                    <Input
-                        name="cath_id"
-                        value={formData.cath_id}
-                        onChange={handleChange}
-                        placeholder="Enter your Cath ID"
-                        required
-                    />
+                    {nicknameError && <div className="mt-1 text-sm text-red-600">{nicknameError}</div>}
                 </div>
 
                 <div>
