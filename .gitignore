@@ -43,3 +43,6 @@ postgres_data/
 # docker
 docker/*/data/
 docker/*/.env
+
+# registry
+registry/*.json
