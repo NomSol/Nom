@@ -39,3 +39,10 @@ postgres_data/
 
 #idea
 .idea/
+
+# docker
+docker/*/data/
+docker/*/.env
+
+# registry
+registry/*.json
