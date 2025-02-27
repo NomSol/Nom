@@ -30,7 +30,7 @@ export default function CreateTreasurePage() {
     id: "",
     name: "",
     description: "",
-    points: 0,
+    points: 10,
     hint: "",
     latitude: latitude,
     longitude: longitude,
