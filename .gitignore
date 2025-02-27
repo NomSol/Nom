@@ -26,7 +26,7 @@ yarn-error.log*
 # local files
 .env*.local
 .env
-package-lock.json
+#package-lock.json
 
 # vercel
 .vercel
@@ -39,3 +39,12 @@ postgres_data/
 
 #idea
 .idea/
+
+.vscode/
+
+.terraform.lock.hcl
+LICENSE.txt
+terraform.tfstate
+terraform.tfstate.backup
+terraform-provider-aws_*
+yarn.lock
