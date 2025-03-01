@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useMatch } from '@/hooks/use-match';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Shield, Clock, Trophy, Users } from 'lucide-react';
 import { useUserProfile } from '@/hooks/use-user';
+import { ref, update } from 'firebase/database';
+import { db } from '@/lib/firebase';
 
 const formatTime = (ms: number): string => {
   if (!ms) return '00:00';
@@ -25,44 +27,90 @@ const MatchDetail = ({ matchId }: MatchDetailProps) => {
   const { match, teams, status, loading } = useMatch(matchId);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const { profile } = useUserProfile();
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const endingMatchRef = useRef<boolean>(false);
   
   // Find which team the user is on
   const userTeam = profile?.id && match ? 
     (teams?.team1?.players?.[profile.id] ? 'team1' : 
      teams?.team2?.players?.[profile.id] ? 'team2' : null) : null;
   
-     useEffect(() => {
-      // Early return if conditions aren't met
-      if (!match || status !== 'in_progress' || !match.startedAt) {
-        setTimeLeft('');
-        return;
-      }
+  // Function to end the match
+  const endMatch = useCallback(async (matchId: string) => {
+    if (endingMatchRef.current) return; // Prevent multiple calls
     
-      const startedAt = match.startedAt; // TypeScript knows startedAt is number here
-    
-      const updateTimer = () => {
-        const endTime = startedAt + (60 * 60 * 1000); // 1 hour after start
-        const now = Date.now();
-        const remaining = Math.max(0, endTime - now);
-    
-        setTimeLeft(formatTime(remaining));
-    
-        if (remaining <= 0) {
-          clearInterval(timerInterval);
+    try {
+      endingMatchRef.current = true;
+      console.log('Ending match:', matchId);
+      
+      // Update match status in Firebase
+      const updates: Record<string, any> = {};
+      updates[`matches/${matchId}/status`] = 'completed';
+      updates[`matches/${matchId}/endedAt`] = Date.now();
+      
+      await update(ref(db), updates);
+      
+      // Clear user-match associations for all players
+      if (match && teams) {
+        const team1Players = teams.team1?.players ? Object.keys(teams.team1.players) : [];
+        const team2Players = teams.team2?.players ? Object.keys(teams.team2.players) : [];
+        
+        for (const userId of [...team1Players, ...team2Players]) {
+          await update(ref(db, `user-matches/${userId}`), { currentMatchId: null });
         }
-      };
+      }
+      
+      console.log('Match ended successfully');
+    } catch (error) {
+      console.error('Error ending match:', error);
+    } finally {
+      endingMatchRef.current = false;
+    }
+  }, [match, teams]);
+  
+  useEffect(() => {
+    // Early return if conditions aren't met
+    if (!match || status !== 'in_progress' || !match.startedAt) {
+      setTimeLeft('');
+      return;
+    }
+  
+    const startedAt = match.startedAt;
+    const endTime = startedAt + (60 * 60 * 1000); // 1 hour after start
     
-      // Initial update
-      updateTimer();
-    
-      // Update every second
-      const timerInterval = setInterval(updateTimer, 1000);
-    
-      // Cleanup interval on unmount
-      return () => {
-        clearInterval(timerInterval);
-      };
-    }, [match, status]);
+    const updateTimer = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, endTime - now);
+  
+      setTimeLeft(formatTime(remaining));
+  
+      if (remaining <= 0) {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        
+        // End the match automatically when time is up
+        if (status === 'in_progress') {
+          endMatch(matchId);
+        }
+      }
+    };
+  
+    // Initial update
+    updateTimer();
+  
+    // Update every second
+    timerIntervalRef.current = setInterval(updateTimer, 1000);
+  
+    // Cleanup interval on unmount
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [match, status, matchId, endMatch]);
   
   if (loading) {
     return (
@@ -126,7 +174,7 @@ const MatchDetail = ({ matchId }: MatchDetailProps) => {
                 <Shield className="h-5 w-5 text-blue-500" />
                 <span className="font-semibold">Team 1</span>
               </div>
-              {match.status === 'in_progress' && (
+              {match.status !== 'matching' && (
                 <div className="flex items-center gap-1">
                   <Trophy className="h-4 w-4 text-yellow-500" />
                   <span className="font-bold">{teams?.team1?.score || 0}</span>
@@ -169,7 +217,7 @@ const MatchDetail = ({ matchId }: MatchDetailProps) => {
                 <Shield className="h-5 w-5 text-red-500" />
                 <span className="font-semibold">Team 2</span>
               </div>
-              {match.status === 'in_progress' && (
+              {match.status !== 'matching' && (
                 <div className="flex items-center gap-1">
                   <Trophy className="h-4 w-4 text-yellow-500" />
                   <span className="font-bold">{teams?.team2?.score || 0}</span>
