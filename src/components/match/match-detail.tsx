@@ -1,217 +1,251 @@
 'use client';
 
-import { useMatch } from "@/hooks/use-match";
-import { useUserProfile } from "@/hooks/use-user";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Timer, Trophy, User, Users } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { useMatch } from '@/hooks/use-match';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Shield, Clock, Trophy, Users } from 'lucide-react';
+import { useUserProfile } from '@/hooks/use-user';
+
+const formatTime = (ms: number): string => {
+  if (!ms) return '00:00';
+  
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
 
 interface MatchDetailProps {
   matchId: string;
 }
 
-export default function MatchDetail({ matchId }: MatchDetailProps) {
-  const { data: match, isLoading, error } = useMatch(matchId);
+const MatchDetail = ({ matchId }: MatchDetailProps) => {
+  const { match, teams, status, loading } = useMatch(matchId);
+  const [timeLeft, setTimeLeft] = useState<string>('');
   const { profile } = useUserProfile();
-
-  // Get match status display
-  const getStatusDisplay = (status?: string) => {
-    switch (status) {
-      case 'matching':
-        return <Badge variant="secondary">Matching</Badge>;
-      case 'playing':
-        return <Badge variant="default">In Progress</Badge>;
-      case 'finished':
-        return <Badge variant="outline">Finished</Badge>;
-      default:
-        return <Badge variant="secondary">{status || 'Unknown Status'}</Badge>;
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
-        <p>Loading match information...</p>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>Please log in first</AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (error || !match) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {error?.message || 'Match information not found'}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Ensure match_teams is an array
-  const teams = Array.isArray(match.match_teams) ? match.match_teams : [];
   
-  // Find the user's team and the opponent team
-  const userTeam = teams.find(team => 
-    Array.isArray(team.match_members) && team.match_members.some(member => member.user_id === profile.id)
-  );
-
-  const otherTeam = teams.find(team => team.id !== userTeam?.id);
-
-
-  const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
+  // Find which team the user is on
+  const userTeam = profile?.id && match ? 
+    (teams?.team1?.players?.[profile.id] ? 'team1' : 
+     teams?.team2?.players?.[profile.id] ? 'team2' : null) : null;
+  
+     useEffect(() => {
+      // Early return if conditions aren't met
+      if (!match || status !== 'in_progress' || !match.startedAt) {
+        setTimeLeft('');
+        return;
+      }
+    
+      const startedAt = match.startedAt; // TypeScript knows startedAt is number here
+    
+      const updateTimer = () => {
+        const endTime = startedAt + (60 * 60 * 1000); // 1 hour after start
+        const now = Date.now();
+        const remaining = Math.max(0, endTime - now);
+    
+        setTimeLeft(formatTime(remaining));
+    
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+        }
+      };
+    
+      // Initial update
+      updateTimer();
+    
+      // Update every second
+      const timerInterval = setInterval(updateTimer, 1000);
+    
+      // Cleanup interval on unmount
+      return () => {
+        clearInterval(timerInterval);
+      };
+    }, [match, status]);
+  
+  if (loading) {
+    return (
+      <div className="text-center py-4">
+        <p>Loading match details...</p>
+      </div>
+    );
+  }
+  
+  if (!match) {
+    return (
+      <div className="text-center py-4">
+        <p>Match not found</p>
+      </div>
+    );
+  }
+  
+  // Calculate progress percentage for team filling
+  const team1Progress = teams?.team1 ? 
+    (teams.team1.currentPlayers / teams.team1.maxPlayers) * 100 : 0;
+  
+  const team2Progress = teams?.team2 ? 
+    (teams.team2.currentPlayers / teams.team2.maxPlayers) * 100 : 0;
+  
+  // Calculate match progress
+  const matchProgress = match.status === 'in_progress' && match.startedAt ? 
+    Math.min(100, ((Date.now() - match.startedAt) / (60 * 60 * 1000)) * 100) : 
+    (match.status === 'completed' ? 100 : 0);
+  
   return (
-    <div className="space-y-6">
-      {/* Match Info Card */}
-      <Card>
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2">
-            <h2 className="text-2xl font-bold">{match.match_type} Match</h2>
-            {getStatusDisplay(match.status)}
-          </div>
-          <p className="text-sm text-gray-500">
-            {match.start_time ? `Start Time: ${formatTime(match.start_time)}` : 'Waiting to start'}
-          </p>
-          {match.end_time && match.status === 'playing' && (
-            <p className="text-sm text-gray-500">
-              End Time: {formatTime(match.end_time)}
-            </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          <span>Match Type: {match.type}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          <span>Status: {match.status}</span>
+          {match.status === 'in_progress' && timeLeft && (
+            <span className="font-bold">{timeLeft}</span>
           )}
-        </CardHeader>
-      </Card>
-
-      {/* Team Information */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* My Team */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                My Team
-                {match.winner_team_id === userTeam?.id && (
-                  <Trophy className="w-5 h-5 ml-2 text-yellow-500" />
-                )}
-              </h3>
-              <Badge variant="outline">Total Score: {userTeam?.total_score ?? 0}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.isArray(userTeam?.match_members) && userTeam.match_members.length > 0 ? (
-                userTeam.match_members.map(member => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <span>{member.user?.nickname}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span>{member.individual_score ?? 0} points</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-4">
-                  Loading team members...
+        </div>
+      </div>
+      
+      {match.status === 'in_progress' && (
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Match Time</span>
+            <span>{timeLeft} remaining</span>
+          </div>
+          <Progress value={matchProgress} className="h-2" />
+        </div>
+      )}
+      
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <Card className={`overflow-hidden ${userTeam === 'team1' ? 'border-2 border-blue-500' : ''}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-500" />
+                <span className="font-semibold">Team 1</span>
+              </div>
+              {match.status === 'in_progress' && (
+                <div className="flex items-center gap-1">
+                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  <span className="font-bold">{teams?.team1?.score || 0}</span>
                 </div>
+              )}
+            </div>
+            
+            <div className="text-sm mb-1">
+              Players: {teams?.team1?.currentPlayers || 0}/{teams?.team1?.maxPlayers || 0}
+            </div>
+            <Progress value={team1Progress} className="h-2 mb-3" />
+            
+            <div className="text-sm">
+              {teams?.team1?.players ? (
+                <div className="space-y-1">
+                  {Object.keys(teams.team1.players).length > 0 ? (
+                    <ul className="space-y-1">
+                      {Object.keys(teams.team1.players).map((playerId) => (
+                        <li key={playerId} className="text-sm flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          {playerId === profile?.id ? 'You' : 'Player'}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No players yet</p>
+                  )}
+                </div>
+              ) : (
+                <p>No players yet</p>
               )}
             </div>
           </CardContent>
         </Card>
-
-        {/* Opponent Team */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Opponent Team
-                {match.winner_team_id === otherTeam?.id && (
-                  <Trophy className="w-5 h-5 ml-2 text-yellow-500" />
-                )}
-              </h3>
-              <Badge variant="outline">Total Score: {otherTeam?.total_score ?? 0}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.isArray(otherTeam?.match_members) && otherTeam.match_members.length > 0 ? (
-                otherTeam.match_members.map(member => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <span>{member.user?.nickname}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span>{member.individual_score ?? 0} points</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-4">
-                  Waiting for opponent...
+        
+        <Card className={`overflow-hidden ${userTeam === 'team2' ? 'border-2 border-red-500' : ''}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-red-500" />
+                <span className="font-semibold">Team 2</span>
+              </div>
+              {match.status === 'in_progress' && (
+                <div className="flex items-center gap-1">
+                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  <span className="font-bold">{teams?.team2?.score || 0}</span>
                 </div>
+              )}
+            </div>
+            
+            <div className="text-sm mb-1">
+              Players: {teams?.team2?.currentPlayers || 0}/{teams?.team2?.maxPlayers || 0}
+            </div>
+            <Progress value={team2Progress} className="h-2 mb-3" />
+            
+            <div className="text-sm">
+              {teams?.team2?.players ? (
+                <div className="space-y-1">
+                  {Object.keys(teams.team2.players).length > 0 ? (
+                    <ul className="space-y-1">
+                      {Object.keys(teams.team2.players).map((playerId) => (
+                        <li key={playerId} className="text-sm flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          {playerId === profile?.id ? 'You' : 'Player'}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No players yet</p>
+                  )}
+                </div>
+              ) : (
+                <p>No players yet</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Treasure Discovery Record */}
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold">Discovered Treasures</h3>
-        </CardHeader>
-        <CardContent>
-          {userTeam?.match_discoveries?.length ? (
-            <div className="space-y-3">
-              {userTeam.match_discoveries.map(discovery => (
-                <div
-                  key={discovery.id}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <span>{discovery.treasure?.name}</span>
-                  <Badge variant="secondary">+{discovery.score ?? 0} points</Badge>
-                </div>
-              ))}
+      
+      {match.status === 'matching' && (
+        <div className="text-center text-sm text-gray-500 mt-2">
+          Waiting for more players to join...
+        </div>
+      )}
+      
+      {match.status === 'in_progress' && (
+        <div className="text-center text-sm text-green-600 mt-2 font-medium">
+          Match in progress!
+        </div>
+      )}
+      
+      {match.status === 'completed' && (
+        <div className="text-center mt-4">
+          <h3 className="text-lg font-bold">Match Complete</h3>
+          <div className="flex justify-center gap-8 mt-2">
+            <div className="text-center">
+              <div className="text-blue-500 font-bold">Team 1</div>
+              <div className="text-2xl font-bold">{teams?.team1?.score || 0}</div>
             </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              No treasures discovered yet
+            <div className="text-center">
+              <div className="text-red-500 font-bold">Team 2</div>
+              <div className="text-2xl font-bold">{teams?.team2?.score || 0}</div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+          <div className="mt-2 font-medium">
+            {teams?.team1 && teams?.team2 ? (
+              teams.team1.score > teams.team2.score ? (
+                <span className="text-blue-500">Team 1 Wins!</span>
+              ) : teams.team2.score > teams.team1.score ? (
+                <span className="text-red-500">Team 2 Wins!</span>
+              ) : (
+                <span>It's a Tie!</span>
+              )
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default MatchDetail;
