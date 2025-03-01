@@ -113,7 +113,7 @@ export function AppSidebar() {
         key={item.title}
         href={item.url}
         className={`flex items-center gap-3 px-4 py-3 bg-white
-        ${!isFirst ? "border-t border-gray-100" : "rounded-t-lg"} 
+        ${!isFirst ? "border-t border-gray-100" : "rounded-t-lg"}
         ${isLast ? "rounded-b-lg" : ""}
         ${active ? "text-gray-900" : "text-gray-700 hover:bg-gray-50"}`}
       >
@@ -150,20 +150,20 @@ export function AppSidebar() {
       }`}
     >
       {/* Status Header */}
-      <SidebarHeader>
+      <SidebarHeader className="flex-shrink-0">
         <div
           className={`p-3 border-b border-gray-200 bg-white ${
             !isSidebarOpen && "hidden md:block"
           }`}
         >
           <div className="flex items-center justify-between">
-            {/* Profile Icon - Styled to match topbar cat icon exactly */}
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shadow-md">
-              {/* Using Cat icon to replace User when sidebar is closed */}
+            {/* Profile Icon - 保持与 topbar 中猫图标一致的样式 */}
+            <div className="rounded-full shadow-md bg-gray-200 flex items-center justify-center w-10 h-10">
+              {/* 使用与 topbar 完全相同的样式 */}
               {!isSidebarOpen ? (
                 <Cat className="h-6 w-6 text-gray-600" strokeWidth={2} />
               ) : (
-                <User className="h-6 w-6 text-gray-500" />
+                <Cat className="h-6 w-6 text-gray-600" strokeWidth={2} />
               )}
             </div>
 
@@ -228,13 +228,15 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent
-        className={`py-4 bg-gray-100 ${!isSidebarOpen && "hidden md:block"}`}
+        className={`py-4 bg-gray-100 ${
+          !isSidebarOpen && "hidden md:block"
+        } overflow-y-auto flex-grow`}
       >
         <SidebarGroup>
           <SidebarGroupContent>
             {/* Only show full menu when sidebar is open */}
             {isSidebarOpen ? (
-              <>
+              <div className="flex flex-col min-h-0">
                 {/* Group 1: Navigation Items */}
                 <MenuGroup title="Navigation" items={navigationItems} />
 
@@ -253,15 +255,17 @@ export function AppSidebar() {
                     )}
                   </div>
 
-                  {/* Special dropdown components */}
+                  {/* Special dropdown components - Fixed width to prevent layout shifts */}
                   <div className="mt-2 mx-4">
-                    <TreasureListDropdown />
+                    <div className="w-full">
+                      <TreasureListDropdown />
+                    </div>
                   </div>
                 </div>
 
                 {/* Group 3: Account Items */}
                 <MenuGroup title="Account" items={accountItems} />
-              </>
+              </div>
             ) : (
               /* Collapsed view - show only icons */
               <div className="flex flex-col items-center space-y-4 mt-4">
@@ -364,14 +368,14 @@ export function AppSidebar() {
 
       {/* Search Bar - Only show when sidebar is open */}
       {isSidebarOpen && (
-        <div className="px-4 py-2 mb-2">
+        <div className="px-4 py-2 mb-2 bg-gray-100 flex-shrink-0">
           <div className="bg-white rounded-lg">
             <SearchCity />
           </div>
         </div>
       )}
 
-      <SidebarFooter>
+      <SidebarFooter className="flex-shrink-0">
         <div
           className={`border-t border-gray-200 p-4 bg-white mt-auto ${
             !isSidebarOpen && "hidden md:block"
@@ -429,40 +433,6 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarFooter>
-
-      {/* Adding the tab bar for mobile view */}
-      {/* <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2">
-        <div className="flex flex-col items-center text-gray-600">
-          <Map className="h-6 w-6" />
-          <span className="text-xs">AR</span>
-        </div>
-        <div className="flex flex-col items-center text-gray-600">
-          <User className="h-6 w-6" />
-          <span className="text-xs">Support</span>
-        </div>
-        <div className="flex flex-col items-center text-gray-600">
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-          <span className="text-xs">Settings</span>
-        </div> */}
-      {/* </div> */}
     </Sidebar>
   );
 }
