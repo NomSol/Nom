@@ -53,51 +53,52 @@ export function useUserProfile(p0?: { enabled?: boolean; }) {
     };
 }
 
-
-
 export async function createUserProfile(userProfile: UserProfileInput) {
-    const apiUrl = `${process.env.NEXT_PUBLIC_HASURA_REST_API}/createuserprofile`;
+  const apiUrl = `${process.env.NEXT_PUBLIC_HASURA_REST_API}/createuserprofile`;
 
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
-        },
-        body: JSON.stringify(userProfile),
-    });
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-hasura-admin-secret":
+        process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || "",
+    },
+    body: JSON.stringify(userProfile),
+  });
 
-    if (!response.ok) {
-        throw new Error('创建用户配置失败');
+  if (!response.ok) {
+    throw new Error("创建用户配置失败");
+  }
+
+  return await response.json();
+}
+
+export async function modifyUserProfile(
+  email: string,
+  updates: Partial<UserProfileInput>
+) {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_HASURA_REST_API}/modifyuserprofile`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-hasura-admin-secret":
+          process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || "",
+      },
+      body: JSON.stringify({
+        email, // 用于标识用户
+        ...updates, // 将更新的字段直接展开
+      }),
     }
+  );
 
-    return await response.json();
-};
+  if (!response.ok) {
+    throw new Error("Failed to modify user profile");
+  }
 
-
-export async function modifyUserProfile(email: string, updates: Partial<UserProfileInput>) {
-
-    const response = await fetch(
-        `${process.env.NEXT_PUBLIC_HASURA_REST_API}/modifyuserprofile`,
-        {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
-            },
-            body: JSON.stringify({
-                email,        // 用于标识用户
-                ...updates,   // 将更新的字段直接展开
-            }),
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error('Failed to modify user profile');
-    }
-
-    const data = await response.json();
-    return data;
+  const data = await response.json();
+  return data;
 }
 
 export async function getUserByNickname(

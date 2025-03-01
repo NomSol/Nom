@@ -1,4 +1,4 @@
-name: Deploy to AWS Fargate
+name: Deploy to AWS ECS
 
 on:
   push:
@@ -29,30 +29,55 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Step 4: Build and Push Docker Image to ECR
+      # Step 4: Debugging AWS CLI setup
+      - name: Debug AWS CLI Setup
+        run: |
+          echo "Checking AWS CLI version..."
+          aws --version
+          echo "Listing ECR repositories..."
+          aws ecr describe-repositories --region ap-southeast-2
+
+      # Step 5: Build and Push Docker Image to ECR
       - name: Build and Push Docker Image
         run: |
           IMAGE_TAG=$(date +%s)
           REPOSITORY_URI="535002867297.dkr.ecr.ap-southeast-2.amazonaws.com/treasure-hunt-repo"
-          docker build -t $REPOSITORY_URI:$IMAGE_TAG .
-          docker push $REPOSITORY_URI:$IMAGE_TAG
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg AWS_REGION=ap-southeast-2 \
+            --build-arg S3_BUCKET_NAME=treasure-hunt-env-bucket \
+            --build-arg AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -t $REPOSITORY_URI:latest .  \
+            --push
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "REPOSITORY_URI=$REPOSITORY_URI" >> $GITHUB_ENV
+        # Debug steps to verify Docker setup
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.4.0
 
-      # Step 5: Deploy to ECS
-      - name: Deploy to ECS
+        # Step 4: Initialize Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      # Step 5: Terraform Plan
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ./terraform
+
+      # Step 6: Terraform Apply
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
+      # Step 7: Deploy to ECS
+      - name: Updating ECS Service
         run: |
           CLUSTER_NAME="treasure-hunt-cluster"
           SERVICE_NAME="treasure-hunt-service"
 
-          # Fetch the existing task definition
-          TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition treasure-hunt-task)
-
-          # Update the container image in the task definition
-          NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URI:$IMAGE_TAG" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.status, .taskDefinitionArn, .revision)')
-
-          # Register the new task definition
-          echo $NEW_TASK_DEFINITION | aws ecs register-task-definition --cli-input-json file:///dev/stdin
-
-          # Update the ECS service to use the new task definition
+          echo "Updating ECS service with the new task definition..."
           aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
