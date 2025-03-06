@@ -14,6 +14,10 @@ const MatchMaking = () => {
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMatching, setIsMatching] = useState(false);
+  // 添加状态跟踪匹配创建/加入过程
+  const [isCreatingMatch, setIsCreatingMatch] = useState(false);
+  // 添加状态跟踪匹配取消过程
+  const [isCancellingMatch, setIsCancellingMatch] = useState(false);
   const { currentMatchId, setCurrentMatch, clearCurrentMatch } = useCurrentMatch();
   const { createMatch, joinMatch, leaveMatch, checkUserMatch, getWaitingMatches } = useMatchActions();
   
@@ -30,6 +34,8 @@ const MatchMaking = () => {
   useEffect(() => {
     console.log('Matching state:', {
       isMatching,
+      isCreatingMatch,
+      isCancellingMatch,
       selectedSize,
       matchType,
       currentMatchId,
@@ -56,7 +62,7 @@ const MatchMaking = () => {
         }
       })));
     }
-  }, [isMatching, selectedSize, matchType, currentMatchId, waitingMatches]);
+  }, [isMatching, isCreatingMatch, isCancellingMatch, selectedSize, matchType, currentMatchId, waitingMatches]);
 
   // Check if user is already in a match on component mount
   useEffect(() => {
@@ -103,6 +109,12 @@ const MatchMaking = () => {
 
       setError(null);
       setSelectedSize(size);
+      
+      // 立即设置为匹配状态，这样UI会直接切换到match-detail界面
+      setIsMatching(true);
+      // 设置正在创建/加入匹配状态
+      setIsCreatingMatch(true);
+      
       const newMatchType = `${size}v${size}`;
       
       // Check if user is already in a match
@@ -110,15 +122,13 @@ const MatchMaking = () => {
       if (existingMatchId) {
         setError('You are already in a match');
         setCurrentMatch(existingMatchId);
-        setIsMatching(true);
+        setIsCreatingMatch(false);
         return;
       }
 
-      // Get waiting matches of this type
+      // Get waiting matches of this type - 执行前已经设置了isMatching为true
       const availableMatches = await getWaitingMatches(newMatchType);
       console.log('Available matches:', availableMatches);
-
-      setIsMatching(true);
 
       if (availableMatches.length > 0) {
         // Find a match with room
@@ -133,10 +143,14 @@ const MatchMaking = () => {
         const newMatchId = await createMatch(newMatchType, profile.id);
         setCurrentMatch(newMatchId);
       }
+      
+      // 完成创建/加入匹配
+      setIsCreatingMatch(false);
     } catch (error) {
       console.error('Match start/join failed:', error);
       setIsMatching(false);
       setSelectedSize(null);
+      setIsCreatingMatch(false);
       setError(error instanceof Error ? error.message : 'Match failed, please try again');
     }
   };
@@ -145,14 +159,24 @@ const MatchMaking = () => {
     if (!currentMatchId || !profile?.id) return;
   
     try {
+      // 设置正在取消匹配状态，防止Match not found闪现
+      setIsCancellingMatch(true);
       console.log('Leaving match:', currentMatchId);
-      await leaveMatch(currentMatchId, profile.id);
       
+      // 先保存当前matchId的引用，因为等会儿要清除它
+      const matchToLeave = currentMatchId;
+      
+      // 执行离开匹配的异步操作
+      await leaveMatch(matchToLeave, profile.id);
+      
+      // 完成所有操作后，再更新UI状态
       setIsMatching(false);
       setSelectedSize(null);
       clearCurrentMatch();
+      setIsCancellingMatch(false);
     } catch (error) {
       console.error('Failed to cancel match:', error);
+      setIsCancellingMatch(false);
       setError(error instanceof Error ? error.message : 'Failed to cancel match, please try again');
     }
   };
@@ -178,8 +202,10 @@ const MatchMaking = () => {
     return waitingMatches?.some(match => match.type === `${size}v${size}`);
   };
 
+  // 修改判断条件，包含取消匹配状态
   const shouldShowMatchDetail = Boolean(currentMatchId) || isMatching;
-  const isLoadingMatchData = isLoadingMatch && currentMatchId;
+  // 修改加载判断，包括创建匹配和取消匹配状态
+  const isLoadingMatchData = (isLoadingMatch && currentMatchId) || isCreatingMatch;
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -200,18 +226,37 @@ const MatchMaking = () => {
                 variant="destructive"
                 className="w-full"
                 onClick={handleCancelMatch}
+                // 在创建或取消匹配过程中禁用取消按钮
+                disabled={isCreatingMatch || isCancellingMatch}
               >
-                Cancel Match
+                {isCancellingMatch ? "Cancelling Match..." : "Cancel Match"}
               </Button>
 
               {isLoadingMatchData ? (
                 <div className="text-center py-8">
                   <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
-                  <p>Loading match information...</p>
+                  <p>
+                    {isCreatingMatch 
+                      ? "Finding or creating your match..." 
+                      : "Loading match information..."}
+                  </p>
                 </div>
-              ) : currentMatchId ? (
+              ) : currentMatchId && !isCancellingMatch ? (
+                // 关键修改：只有当不在取消状态时才显示MatchDetail
                 <MatchDetail matchId={currentMatchId} />
-              ) : null}
+              ) : (
+                // 当正在取消匹配时，显示取消匹配的状态
+                <div className="text-center py-8">
+                  {isCancellingMatch ? (
+                    <>
+                      <Timer className="animate-spin h-8 w-8 mx-auto mb-2" />
+                      <p>Cancelling match...</p>
+                    </>
+                  ) : (
+                    <p>Preparing match environment...</p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -222,7 +267,7 @@ const MatchMaking = () => {
                     onClick={() => handleMatchStart(size)}
                     variant={selectedSize === size ? "default" : "outline"}
                     className="h-24 relative"
-                    disabled={isMatching || isLoadingMatches}
+                    disabled={isMatching || isLoadingMatches || isCreatingMatch || isCancellingMatch}
                   >
                     <div className="text-center">
                       <Users className="h-8 w-8 mb-2 mx-auto" />
