@@ -1,10 +1,11 @@
 'use client';
 
-import { Mic, Send, Volume2 } from 'lucide-react';
-import { useState } from 'react';
+import { Mic, Send, Volume2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
-import { Dialog, DialogContent } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
+import { Spinner } from './ui/spinner';
 
 interface AIDialogProps {
   open: boolean;
@@ -15,34 +16,99 @@ export function AIDialog({ open, onOpenChange }: AIDialogProps) {
   const [input, setInput] = useState('');
   const [response, setResponse] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
     
-    // 模拟API调用
-    const mockResponse = getMockResponse(input);
-    setResponse(mockResponse);
-    setInput('');
+    setIsLoading(true);
+    try {
+      // 模拟API调用延迟
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const mockResponse = getMockResponse(input);
+      setResponse(mockResponse);
+      setInput('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const startRecording = async () => {
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        chunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setIsLoading(true);
+
+        try {
+          // 创建FormData对象
+          const formData = new FormData();
+          formData.append('audio', audioBlob, 'audio.webm');
+
+          // 发送到我们的转录API端点
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Transcription failed');
+          }
+
+          const data = await response.json();
+          setInput(data.text);
+        } catch (error) {
+          console.error('Error processing audio:', error);
+        } finally {
+          setIsLoading(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start();
       setIsRecording(true);
-      // 这里添加实际的语音识别逻辑
-      // 模拟3秒后获得语音输入
-      setTimeout(() => {
-        setInput('How do I get to the nearest park?');
-        setIsRecording(false);
-      }, 3000);
     } catch (error) {
-      console.error('Error recording:', error);
+      console.error('Error accessing microphone:', error);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
 
   const playResponse = () => {
     if ('speechSynthesis' in window && response) {
+      // 停止任何正在播放的语音
+      window.speechSynthesis.cancel();
+      
       const utterance = new SpeechSynthesisUtterance(response);
+      // 设置语音属性
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -50,11 +116,22 @@ export function AIDialog({ open, onOpenChange }: AIDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="text-center">AI Assistant</DialogTitle>
+        </DialogHeader>
         <div className="flex flex-col h-[400px]">
           <div className="flex-1 overflow-y-auto p-4">
             {response && (
-              <div className="bg-gray-100 p-3 rounded-lg mb-4">
+              <div className="bg-gray-100 p-3 rounded-lg mb-4 relative group">
                 {response}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={playResponse}
+                >
+                  <Volume2 className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
@@ -66,29 +143,28 @@ export function AIDialog({ open, onOpenChange }: AIDialogProps) {
                 placeholder="Type your message..."
                 className="flex-1"
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                disabled={isRecording || isLoading}
               />
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={startRecording}
-                disabled={isRecording}
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isLoading}
+                className={isRecording ? 'animate-pulse bg-red-100' : ''}
               >
-                <Mic className="h-5 w-5" />
+                {isRecording ? (
+                  <X className="h-5 w-5 text-red-500" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
               </Button>
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={handleSend}
+                disabled={isLoading || isRecording || !input.trim()}
               >
-                <Send className="h-5 w-5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={playResponse}
-                disabled={!response}
-              >
-                <Volume2 className="h-5 w-5" />
+                {isLoading ? <Spinner /> : <Send className="h-5 w-5" />}
               </Button>
             </div>
           </div>
