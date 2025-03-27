@@ -33,13 +33,24 @@ export function AIDialog({ open, onOpenChange }: AIDialogProps) {
     
     setIsLoading(true);
     try {
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockResponse = getMockResponse(input);
-      setResponse(mockResponse);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: input }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      setResponse(data.text);
       setInput('');
     } catch (error) {
       console.error('Error sending message:', error);
+      setResponse('Sorry, I encountered an error while processing your request.');
     } finally {
       setIsLoading(false);
     }
@@ -172,18 +183,4 @@ export function AIDialog({ open, onOpenChange }: AIDialogProps) {
       </DialogContent>
     </Dialog>
   );
-}
-
-function getMockResponse(input: string): string {
-  const lowerInput = input.toLowerCase();
-  
-  if (lowerInput.includes('weather')) {
-    return "Currently it's 72°F (22°C) and sunny with a light breeze. Perfect weather for outdoor activities!";
-  }
-  
-  if (lowerInput.includes('direction') || lowerInput.includes('get to')) {
-    return "To reach your destination, head north on Main Street for 2 blocks, then turn right onto Park Avenue. Your destination will be on the left after about 5 minutes of walking.";
-  }
-  
-  return "I'm here to help with accessibility features, navigation, and general information. How can I assist you today?";
 } 
