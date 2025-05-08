@@ -9,6 +9,7 @@ import {
   User, // 占位图标
   X, // 关闭按钮图标（在创建时可用）
 } from "lucide-react";
+import { MatchModal } from "./MatchModal";
 
 // 这两个工具函数可以直接复制，也可以从 TreasureListDropdown 里抽取
 function normalizeLongitude(longitude: number): number {
@@ -29,6 +30,7 @@ export function FloatingActions() {
   const [isCreating, setIsCreating] = useState(false);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
 
   // 点击加号时，执行与侧边栏同样的定位逻辑
   const handlePlusClick = () => {
@@ -111,7 +113,7 @@ export function FloatingActions() {
 
         <button
           className="p-3 rounded-full bg-white shadow hover:bg-gray-100"
-          onClick={() => alert("Placeholder #3")}
+          onClick={() => setIsMatchModalOpen(true)}
         >
           <User className="h-5 w-5 text-gray-700" />
         </button>
@@ -147,6 +149,12 @@ export function FloatingActions() {
           />
         </div>
       )}
+
+        {/* 添加匹配Modal */}
+        <MatchModal 
+        isOpen={isMatchModalOpen} 
+        onClose={() => setIsMatchModalOpen(false)} 
+      />
     </>
   );
 }
