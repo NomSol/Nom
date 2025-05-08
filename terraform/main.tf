@@ -318,14 +318,14 @@ provider "aws" {
 #
 # # secret
 #
-# resource "aws_s3_bucket" "env_bucket" {
-#   bucket = "treasure-hunt-env-bucket"
-#   acl    = "private"
-#
-#   tags = {
-#     Name = "treasure-hunt-env"
-#   }
-# }
+resource "aws_s3_bucket" "env_bucket" {
+  bucket = "treasure-hunt-env-bucket"
+  acl    = "private"
+
+  tags = {
+    Name = "treasure-hunt-env"
+  }
+}
 #
 # resource "aws_s3_bucket_object" "env_file" {
 #   bucket = aws_s3_bucket.env_bucket.bucket
