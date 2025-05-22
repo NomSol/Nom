@@ -7,21 +7,29 @@ import {
     AgentCapability,
     UserContext
 } from './types'
+import { TokenAnalyst, TokenData } from './Analyst'
 
 
 export class AccessibilityAgent {
     private llm: OllamaService
+    private tokenAnalyst: TokenAnalyst
 
     constructor(
         private registry: FunctionRegistry,
         private userContext: UserContext
     ) {
         this.llm = new OllamaService()
+        this.tokenAnalyst = new TokenAnalyst()
     }
 
     async processRequest(input: string): Promise<AccessibilityResponse> {
         try {
-            // Prepare the prompt
+            // Check if the request is related to token analysis
+            if (this.isTokenAnalysisRequest(input)) {
+                return await this.handleTokenAnalysisRequest(input)
+            }
+
+            // Regular accessibility request processing
             const systemContent = JSON.stringify(registryData, null, 2) + "\n\n" +
                 "1. Consider which function from the registry would best help with the user's request\n" +
                 "2. Clearly indicate which function you recommend using\n" +
@@ -50,47 +58,67 @@ export class AccessibilityAgent {
         }
     }
 
-    // ... rest of the methods remain the same ...
+    // Simple check to determine if request is about token analysis
+    private isTokenAnalysisRequest(input: string): boolean {
+        const lowerInput = input.toLowerCase()
 
+        // Keywords related to token analysis
+        const tokenAnalysisKeywords = [
+            'token', 'crypto', 'solana', 'memecoin', 'dead coin', 'dead token',
+            'analyze token', 'token analysis', 'market cap', 'liquidity',
+            'death score', 'recovery potential', 'pump'
+        ]
 
+        return tokenAnalysisKeywords.some(keyword => lowerInput.includes(keyword))
+    }
 
-    //     async processRequest(input: string): Promise<AccessibilityResponse> {
-    //         try {
-    //             const accessLevel = this.determineAccessLevel(this.userContext)
-    //             const capabilities = this.determineCapabilities(this.userContext)
+    // Handle token analysis-related requests
+    private async handleTokenAnalysisRequest(input: string): Promise<AccessibilityResponse> {
+        try {
+            // Check if request is for a specific token
+            const tokenAddressMatch = input.match(/[a-zA-Z0-9]{32,44}/) // Simple regex for Solana addresses
 
-    //             // Create a system prompt that includes the full registry data
-    //             const functions = registryData.functions
-    //             const systemPrompt = this.generateSystemPrompt(functions)
+            if (tokenAddressMatch) {
+                // Analyze specific token
+                const tokenAddress = tokenAddressMatch[0]
+                const tokenData = await this.tokenAnalyst.analyzeToken(tokenAddress)
 
-    //             // Generate response using the LLM
-    //             const response = await this.llm.chat([
-    //                 {
-    //                     role: 'system',
-    //                     content: `${systemPrompt}\n\nWhen responding, please:
-    // 1. Consider which function from the registry would best help with the user's request
-    // 2. Clearly indicate which function you recommend using
-    // 3. Explain why this function is appropriate
-    // 4. Consider the user's accessibility needs in your response`
-    //                 },
-    //                 {
-    //                     role: 'user',
-    //                     content: input
-    //                 }
-    //             ])
+                if (!tokenData) {
+                    return {
+                        text: `I couldn't find any data for token address ${tokenAddress}. Please verify the address and try again.`,
+                        actions: [],
+                        alternatives: []
+                    }
+                }
 
-    //             // Find the most relevant function based on the LLM's response
-    //             const recommendedFunction = this.findRecommendedFunction(
-    //                 response.message.content,
-    //                 functions
-    //             )
+                // Format token data for response
+                const formattedData = this.tokenAnalyst.formatTokenDataForAgent(tokenData)
 
-    //             return this.formatResponse(response, recommendedFunction)
-    //         } catch (error) {
-    //             console.error('Error processing accessibility request:', error)
-    //             return this.getFallbackResponse(error)
-    //         }
-    //     }
+                return {
+                    text: `Here's my analysis of the token ${tokenData.name || tokenAddress}:\n\n${formattedData}`,
+                    actions: [],
+                    alternatives: []
+                }
+            } else {
+                // Get list of dead tokens
+                const deadTokens = await this.tokenAnalyst.getDeadTokensList(5) // Limit to 5 tokens
+                const summary = this.tokenAnalyst.formatTokensSummary(deadTokens)
+
+                return {
+                    text: `Here are some potentially "dead" tokens that might have recovery potential:\n\n${summary}`,
+                    actions: [],
+                    alternatives: []
+                }
+            }
+        } catch (error) {
+            console.error('Error processing token analysis request:', error)
+            return {
+                text: `I encountered an error while analyzing token data: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again later.`,
+                actions: [],
+                alternatives: []
+            }
+        }
+    }
 
     private findRecommendedFunction(responseText: string, functions: any[]): any {
         // Simple matching based on function names mentioned in the response
