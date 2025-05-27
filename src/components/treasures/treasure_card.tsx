@@ -2,7 +2,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Edit, Heart, Trash } from 'lucide-react';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/utils/auth';
+import { useWallet } from '@/context/WalletContext';
 import { useUserProfile } from '@/hooks/use-user';
 import { useLikes } from '@/hooks/use-likes';
 import { Treasure } from '@/types/treasure';
@@ -19,10 +20,11 @@ interface TreasureCardProps {
 }
 
 export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) {
-  const { data: session } = useSession();
+  const { isAuthenticated, user } = useAuth();
+  const { walletAddress } = useWallet();
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
-  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { profile } = useUserProfile({ enabled: !!walletAddress });
   const { comments, loading } = useTreasureComments(treasure.id);
   const { isLiked, likeTreasure, unlikeTreasure, getLikesCount } = useLikes(treasure.id);
   const liked = isLiked(treasure.id);
@@ -39,7 +41,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
       console.log('No profile found, cannot like/unlike');
       return;
     }
-    
+
     try {
       if (liked) {
         await unlikeTreasure.mutateAsync(treasure.id);
@@ -112,7 +114,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
         <div className="flex flex-wrap justify-center items-center gap-2">
           <div className="flex justify-center gap-2 order-2 w-full">
             {!isCreator && !isFound && (
-              <Button 
+              <Button
                 variant="outline"
                 className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200 rounded-full px-4 text-sm h-8 min-w-[80px]"
                 onClick={() => setVerifyDialogOpen(true)}
@@ -120,7 +122,7 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
                 MINT
               </Button>
             )}
-            <Button 
+            <Button
               variant="outline"
               className={cn(
                 "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 rounded-full px-4 text-sm h-8 min-w-[80px]",
@@ -131,14 +133,14 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
               {loading ? 'Loading...' : `Logs (${comments?.length})`}
             </Button>
           </div>
-          
+
           {/* Edit and Delete buttons in a separate container */}
           {(onEdit || onDelete) && (
             <div className="flex justify-center gap-1 order-1">
               {onEdit && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="hover:bg-gray-100 h-8 w-8"
                   onClick={() => onEdit(treasure)}
                 >
@@ -146,8 +148,8 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
                 </Button>
               )}
               {onDelete && (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   className="hover:bg-gray-100 h-8 w-8"
                   onClick={() => onDelete(treasure.id)}
@@ -169,13 +171,13 @@ export function TreasureCard({ treasure, onEdit, onDelete }: TreasureCardProps) 
 
         {/* Logs Panel */}
         {showLogs && (
-        <div className="mt-3 p-2 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2 pb-2 border-b">
-            <h3 className="text-sm font-medium">Comments</h3>
+          <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b">
+              <h3 className="text-sm font-medium">Comments</h3>
+            </div>
+            <TreasureComments treasureId={treasure.id} />
           </div>
-          <TreasureComments treasureId={treasure.id} />
-        </div>
-      )}
+        )}
       </div>
 
       <VerifyTreasureDialog

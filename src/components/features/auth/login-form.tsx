@@ -45,33 +45,16 @@ export function LoginForm() {
       {
         provider: "google",
         icon: FcGoogle,
-        text: "Gmail登录",
+        text: "Gmail",
         color: "bg-white hover:bg-gray-100 text-gray-700",
       },
       {
         provider: "twitter",
         icon: FaSquareXTwitter,
-        text: "Twitter登录",
+        text: "Twitter",
         color: "bg-white hover:bg-gray-100 text-gray-700",
       },
-      {
-        provider: "facebook",
-        icon: BsFacebook,
-        text: "Facebook登录",
-        color: "bg-[#4267B2] hover:bg-[#365899] text-white",
-      },
-      {
-        provider: "discord",
-        icon: BsDiscord,
-        text: "Discord登录",
-        color: "bg-[#7289DA] hover:bg-[#677bc4] text-white",
-      },
-      {
-        provider: "wechat",
-        icon: RiWechatFill,
-        text: "微信登录",
-        color: "bg-[#7BB32E] hover:bg-[#6b9e29] text-white",
-      },
+
     ];
 
   return (

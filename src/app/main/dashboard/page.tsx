@@ -5,20 +5,21 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { MapContext } from "@/components/dashboard/MapContext";
-import { TreasureMarkers } from "@/components/dashboard/TreasureMarkers";
-import { useTreasures } from "@/hooks/use-treasure";
+import { StationMarkers } from "@/components/dashboard/StationMarkers";
+import { useStations } from "@/hooks/use-stations";
 import { SidebarProvider } from "@/components/dashboard/sidebar";
 
 import { AppTopbar } from "@/components/dashboard/app-topbar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
-import { FloatingActions } from "@/components/dashboard/FloatingActions"; // <-- new import
+import { FloatingActions } from "@/components/dashboard/FloatingActions";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+mapboxgl.accessToken = "pk.eyJ1IjoiY2FodW50ZXIiLCJhIjoiY20zcDk3MWptMGQ2OTJyb2FjcWVodXcwbyJ9.KpVXU9HKAb6zv5As2_1BuQ"
 
 export default function MapPage() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const { treasures, isLoading, error } = useTreasures();
+  const { stations, isLoading } = useStations();
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -26,8 +27,9 @@ export default function MapPage() {
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v12",
-      center: [149.13, -35.28],
-      zoom: 15,
+      // San Francisco area
+      center: [-122.4, 37.8],
+      zoom: 13,
       pitch: 60,
       bearing: -30,
       antialias: true,
@@ -105,19 +107,19 @@ export default function MapPage() {
           <div ref={mapContainerRef} className="h-full w-full" />
           {isLoading && (
             <div className="absolute top-0 left-0 z-[51] bg-white p-4">
-              Loading treasures...
+              Loading recycling stations...
             </div>
           )}
           {error && (
             <div className="absolute top-0 left-0 z-[51] bg-red-500 p-4 text-white">
-              Error loading treasures
+              Error loading recycling stations: {error.message}
             </div>
           )}
         </div>
 
-        {/* treasure mark */}
-        {mapInstance && treasures && treasures.length > 0 && (
-          <TreasureMarkers map={mapInstance} treasures={treasures} />
+        {/* station markers */}
+        {mapInstance && stations && stations.length > 0 && (
+          <StationMarkers map={mapInstance} stations={stations} />
         )}
 
         {/* Floating button area in the lower right corner */}

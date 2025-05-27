@@ -1,7 +1,6 @@
 "use client";
-import { useSession } from "next-auth/react";
+import { useWallet } from '@/context/WalletContext';
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { useUserGameProps } from "@/hooks/use-usergameprops";
 import { useSidebar } from "./sidebar";
 
@@ -44,7 +43,7 @@ interface MenuItem {
 }
 
 export function AppSidebar() {
-  const { data: session } = useSession();
+  const { walletAddress, connected, disconnectWallet } = useWallet();
   const pathname = usePathname();
   const { gameProps, isLoading } = useUserGameProps();
   const { open, openMobile, isMobile } = useSidebar();
@@ -145,16 +144,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`bg-gray-100 transition-all duration-300 ${
-        isSidebarOpen ? "w-72" : "w-0 md:w-16"
-      }`}
+      className={`bg-gray-100 transition-all duration-300 ${isSidebarOpen ? "w-72" : "w-0 md:w-16"
+        }`}
     >
       {/* Status Header */}
       <SidebarHeader className="flex-shrink-0">
         <div
-          className={`p-3 border-b border-gray-200 bg-white ${
-            !isSidebarOpen && "hidden md:block"
-          }`}
+          className={`p-3 border-b border-gray-200 bg-white ${!isSidebarOpen && "hidden md:block"
+            }`}
         >
           <div className="flex items-center justify-between">
             {/* Profile Icon - 保持与 topbar 中猫图标一致的样式 */}
@@ -228,9 +225,8 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent
-        className={`py-4 bg-gray-100 ${
-          !isSidebarOpen && "hidden md:block"
-        } overflow-y-auto flex-grow`}
+        className={`py-4 bg-gray-100 ${!isSidebarOpen && "hidden md:block"
+          } overflow-y-auto flex-grow`}
       >
         <SidebarGroup>
           <SidebarGroupContent>
@@ -274,9 +270,8 @@ export function AppSidebar() {
                   <a
                     key={item.title}
                     href={item.url}
-                    className={`p-2 rounded-full ${
-                      pathname === item.url ? "bg-white" : "hover:bg-gray-200"
-                    }`}
+                    className={`p-2 rounded-full ${pathname === item.url ? "bg-white" : "hover:bg-gray-200"
+                      }`}
                     title={item.title}
                   >
                     {item.icon}
@@ -290,9 +285,8 @@ export function AppSidebar() {
                   <a
                     key={item.title}
                     href={item.url}
-                    className={`p-2 rounded-full ${
-                      pathname === item.url ? "bg-white" : "hover:bg-gray-200"
-                    }`}
+                    className={`p-2 rounded-full ${pathname === item.url ? "bg-white" : "hover:bg-gray-200"
+                      }`}
                     title={item.title}
                   >
                     {item.icon}
@@ -302,7 +296,7 @@ export function AppSidebar() {
                 <a
                   href="/placements"
                   className="p-2 rounded-full hover:bg-gray-200"
-                  title="My Placements"
+                  title="My Disposal History"
                 >
                   <svg
                     className="w-5 h-5 text-gray-600"
@@ -352,9 +346,8 @@ export function AppSidebar() {
                   <a
                     key={item.title}
                     href={item.url}
-                    className={`p-2 rounded-full ${
-                      pathname === item.url ? "bg-white" : "hover:bg-gray-200"
-                    }`}
+                    className={`p-2 rounded-full ${pathname === item.url ? "bg-white" : "hover:bg-gray-200"
+                      }`}
                     title={item.title}
                   >
                     {item.icon}
@@ -377,18 +370,15 @@ export function AppSidebar() {
 
       <SidebarFooter className="flex-shrink-0">
         <div
-          className={`border-t border-gray-200 p-4 bg-white mt-auto ${
-            !isSidebarOpen && "hidden md:block"
-          }`}
+          className={`border-t border-gray-200 p-4 bg-white mt-auto ${!isSidebarOpen && "hidden md:block"
+            }`}
         >
           {isSidebarOpen ? (
             <div className="flex items-center gap-2">
-              {session?.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt="User"
-                  className="h-8 w-8 rounded-full"
-                />
+              {walletAddress ? (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+                  <Wallet className="h-5 w-5 text-gray-600" />
+                </div>
               ) : (
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
                   <User className="h-5 w-5 text-gray-600" />
@@ -400,10 +390,10 @@ export function AppSidebar() {
                     <button className="flex w-full items-center justify-between">
                       <div className="flex flex-col text-left truncate">
                         <span className="text-sm font-medium text-gray-900 truncate">
-                          {session?.user?.name || "User"}
+                          {walletAddress || "User"}
                         </span>
                         <span className="text-xs text-gray-500 truncate">
-                          {session?.user?.email || ""}
+                          {connected ? "Connected" : "Not Connected"}
                         </span>
                       </div>
                       <ChevronDown className="ml-1 h-4 w-4 text-gray-500 flex-shrink-0" />
@@ -417,7 +407,15 @@ export function AppSidebar() {
                       <span>Notifications</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => signOut()}>
+                    <DropdownMenuItem onSelect={() => {
+                      try {
+                        disconnectWallet();
+                      } catch (error) {
+                        console.error("Error during logout:", error);
+                        // Continue with navigation even if disconnect fails
+                        window.location.href = '/';
+                      }
+                    }}>
                       <span>Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

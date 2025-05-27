@@ -2,10 +2,10 @@ import { Profile } from '@/types/profile';
 
 export const DEFAULT_PROFILE: Profile = {
     id: '',
-    nickname: '未知用户',
+    nickname: 'Unknown User',
     redBookId: '0000000000',
-    ipLocation: '未知',
-    description: '这个人很懒，什么都没有写',
+    ipLocation: 'Unknown',
+    description: 'This person is lazy and has not written anything',
     avatarUrl: '/default-avatar.png',
     stats: {
         following: 0,

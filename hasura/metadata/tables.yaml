@@ -1,0 +1,55 @@
+- table:
+    schema: public
+    name: users
+  array_relationships:
+    - name: treasures_created
+      using:
+        foreign_key_constraint_on:
+          column: creator_id
+          table:
+            schema: public
+            name: treasures
+    - name: treasures_found
+      using:
+        foreign_key_constraint_on:
+          column: finder_id
+          table:
+            schema: public
+            name: treasures
+    - name: likes
+      using:
+        foreign_key_constraint_on:
+          column: user_id
+          table:
+            schema: public
+            name: likes
+
+- table:
+    schema: public
+    name: treasures
+  object_relationships:
+    - name: creator
+      using:
+        foreign_key_constraint_on: creator_id
+    - name: finder
+      using:
+        foreign_key_constraint_on: finder_id
+  array_relationships:
+    - name: likes
+      using:
+        foreign_key_constraint_on:
+          column: treasure_id
+          table:
+            schema: public
+            name: likes
+
+- table:
+    schema: public
+    name: likes
+  object_relationships:
+    - name: user
+      using:
+        foreign_key_constraint_on: user_id
+    - name: treasure
+      using:
+        foreign_key_constraint_on: treasure_id

@@ -1,0 +1,29 @@
+- definition:
+    query:
+      collection_name: allowed-queries
+      query_name: getUserProfile
+    url: wallet_user
+    methods:
+      - GET
+    name: getUserProfile
+  comment: Get user profile by wallet address
+  
+- definition:
+    query:
+      collection_name: allowed-queries
+      query_name: createUserProfile
+    url: createuserprofile
+    methods:
+      - POST
+    name: createUserProfile
+  comment: Create a new user profile
+  
+- definition:
+    query:
+      collection_name: allowed-queries
+      query_name: modifyUserProfile
+    url: modifyuserprofile
+    methods:
+      - PATCH
+    name: modifyUserProfile
+  comment: Modify an existing user profile 

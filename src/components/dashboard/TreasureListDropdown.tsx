@@ -11,14 +11,15 @@ import {
   Check,
 } from "lucide-react";
 import { MapContext } from "@/components/dashboard/MapContext";
-import { useRouter } from "next/navigation"; // 导入 useRouter
+import { useRouter } from "next/navigation"; // Import useRouter
 
 import { TreasureCreationForm } from "./TreansureCreationForm";
 import { useTreasures } from "@/hooks/use-treasure";
 import { Treasure } from "@/types/treasure";
 import { useSidebar } from "./sidebar";
 import { useUserProfile } from "@/hooks/use-user";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/utils/auth";
+import { useWallet } from "@/context/WalletContext";
 
 // Add type for map object
 type MapType = {
@@ -45,12 +46,13 @@ function normalizeLatitude(latitude: number): number {
 }
 
 export function TreasureListDropdown() {
-  const router = useRouter(); // 初始化 router
+  const router = useRouter(); // Initialize router
   const map = useContext(MapContext) as MapType | null;
   const { open, openMobile, isMobile } = useSidebar();
   const isSidebarOpen = isMobile ? openMobile : open;
-  const { data: session } = useSession();
-  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { isAuthenticated, user } = useAuth();
+  const { walletAddress } = useWallet();
+  const { profile } = useUserProfile({ enabled: !!walletAddress });
 
   // Treasure hooks
   const {
@@ -127,7 +129,7 @@ export function TreasureListDropdown() {
 
   const handleVerifyFinding = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // 导航到宝藏页面
+    // Navigate to treasures page
     router.push("/main/treasures");
   };
 
@@ -187,17 +189,16 @@ export function TreasureListDropdown() {
     type: "placement" | "finding"
   ) => {
     const categoryTag = treasure.status || "ACTIVE";
-    const userName = session?.user?.name || "王子玉";
+    const userName = profile?.nickname || user?.name || "Wallet User";
     const viewCount = Math.floor(Math.random() * 1000) + 100; // Mock data
 
     return (
       <div
         key={treasure.id}
         className={`bg-white rounded-xl shadow-sm mb-2 cursor-pointer overflow-hidden border 
-          ${
-            selectedTreasure === treasure.id
-              ? "border-blue-400"
-              : "border-gray-100"
+          ${selectedTreasure === treasure.id
+            ? "border-blue-400"
+            : "border-gray-100"
           }`}
         onClick={() => handleTreasureClick(treasure)}
       >

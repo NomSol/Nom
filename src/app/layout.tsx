@@ -8,8 +8,8 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '寻宝游戏',
-  description: '一个有趣的寻宝游戏平台',
+  title: 'NOM',
+  description: 'First Meme Coin Exit Gamified Platform',
 }
 
 export default function RootLayout({

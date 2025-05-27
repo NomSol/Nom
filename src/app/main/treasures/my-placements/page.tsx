@@ -7,22 +7,24 @@ import { Button } from '@/components/ui/button';
 import { TreasureList } from '@/components/treasures/treasure_list';
 import { useTreasures } from '@/hooks/use-treasure';
 import { useToast } from '@/components/ui/toaster';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/utils/auth';
+import { useWallet } from '@/context/WalletContext';
 import { useUserProfile } from '@/hooks/use-user';
 
 export default function MyPlacementsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { data: session } = useSession();
+  const { isAuthenticated, user } = useAuth();
+  const { walletAddress } = useWallet();
   const { userPlacements, isLoading, error, deleteTreasure } = useTreasures();
-  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { profile } = useUserProfile({ enabled: !!walletAddress });
 
   // Redirect to login if user is not authenticated
   useEffect(() => {
-    if (!session?.user) {
-      router.push('/login');
+    if (!isAuthenticated) {
+      router.push('/auth/connect-wallet');
     }
-  }, [session, router]);
+  }, [isAuthenticated, router]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
@@ -45,10 +47,10 @@ export default function MyPlacementsPage() {
     }
   };
 
-  // 确保所有 treasures 都设置了正确的 creator_id
+  // Ensure all treasures have the correct creator_id
   const treasuresWithCreator = userPlacements?.map(treasure => ({
     ...treasure,
-    creator_id: profile?.id // 确保 creator_id 与当前用户 ID 匹配
+    creator_id: profile?.id // Ensure creator_id matches current user ID
   })) || [];
 
   return (

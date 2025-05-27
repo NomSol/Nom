@@ -6,30 +6,32 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { useTreasureComments } from '@/hooks/use-treasure-comments';
 import { useUserProfile } from '@/hooks/use-user';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/utils/auth';
+import { useWallet } from '@/context/WalletContext';
 
 export function TreasureComments({ treasureId }: { treasureId: string }) {
-  const { data: session } = useSession();
-  const { profile, isLoading: profileLoading } = useUserProfile({ enabled: !!session?.user?.email });
+  const { isAuthenticated, user } = useAuth();
+  const { walletAddress } = useWallet();
+  const { profile, isLoading: profileLoading } = useUserProfile({ enabled: !!walletAddress });
   const { comments, loading, addComment } = useTreasureComments(treasureId);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('Auth state:', {
-      session,
+      isAuthenticated,
+      walletAddress,
       profile,
-      userEmail: session?.user?.email,
       profileLoading
     });
-  }, [session, profile, profileLoading]);
+  }, [isAuthenticated, walletAddress, profile, profileLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!session?.user?.email) {
-      setError('Please login with your Google account');
+    if (!isAuthenticated || !walletAddress) {
+      setError('Please connect your wallet to comment');
       return;
     }
 
@@ -52,7 +54,7 @@ export function TreasureComments({ treasureId }: { treasureId: string }) {
       await addComment(
         input.trim(),
         profile.id,
-        profile.nickname,
+        profile.nickname || `User_${walletAddress.slice(0, 6)}`,
         profile.avatar_url
       );
       setInput('');
@@ -71,20 +73,20 @@ export function TreasureComments({ treasureId }: { treasureId: string }) {
       {error && (
         <div className="text-red-500 text-sm mb-2">{error}</div>
       )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-2">
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={profile ? "Write a comment..." : "Please login to comment"}
+          placeholder={isAuthenticated ? "Write a comment..." : "Please connect your wallet to comment"}
           className="min-h-[60px] text-sm resize-none"
-          disabled={!profile}
+          disabled={!isAuthenticated || !profile}
         />
         <div className="flex justify-end">
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             size="sm"
-            disabled={!input.trim() || !profile}
+            disabled={!input.trim() || !isAuthenticated || !profile}
           >
             Comment
           </Button>

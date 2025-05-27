@@ -6,103 +6,133 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState, useEffect } from 'react';
 import { UserProfileInput } from '@/types/user';
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/utils/auth";
+import { useWallet } from "@/context/WalletContext";
 import { useUserProfile, createUserProfile, modifyUserProfile, getUserByNickname } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 
 
 export function SettingForm() {
-    // 在组件中
     const router = useRouter();
-    const { data: session, status } = useSession();
-    const { refetch, profile, isLoading, error } = useUserProfile({ enabled: true });
+    const { isAuthenticated, user } = useAuth();
+    const { walletAddress, walletType } = useWallet();
+    const { refetch, profile, isLoading, error } = useUserProfile({ enabled: !!walletAddress });
     const [isUpdating, setIsUpdating] = useState(false);
-    const [nicknameError, setNicknameError] = useState('');         //for nickname error to show on the page, use hook to automatically show
-    const [settingResult, setSettingResult] = useState('');         //for setting result to show on the page, use hook to automatically show
+    const [nicknameError, setNicknameError] = useState('');         // For nickname error to show on the page
+    const [settingResult, setSettingResult] = useState('');         // For setting result to show on the page
 
 
     const [formData, setFormData] = useState<UserProfileInput>({
-        nickname: session?.user?.name || "treasure_hunter",
-        avatar_url: session?.user?.image || "",
+        nickname: user?.name || `User_${walletAddress?.substring(0, 6)}` || "treasure_hunter",
+        avatar_url: user?.image || "",
         ip_location: "Canberra, Australia",
         description: "",
-        email: session?.user?.email || "",
+        email: user?.email || `${walletAddress}@wallet.user` || "",
+        wallet_address: walletAddress || "",
     });
 
 
-    //初始化或更新 formData
+    // Initialize or update formData
     useEffect(() => {
         if (!error && profile) {
             setFormData((prev) => ({
                 ...prev,
-                nickname: profile.nickname || "treasure_hunter",
-                avatar_url: profile.avatar_url || session?.user?.image || "",
+                nickname: profile.nickname || `User_${walletAddress?.substring(0, 6)}` || "treasure_hunter",
+                avatar_url: profile.avatar_url || user?.image || "",
                 ip_location: profile.ip_location || "Canberra, Australia",
                 description: profile.description || "",
-                email: profile.email || session?.user?.email || "",
+                email: profile.email || `${walletAddress}@wallet.user` || "",
+                wallet_address: walletAddress || profile.wallet_address || "",
+            }));
+        } else if (walletAddress && !profile) {
+            // If we have a wallet but no profile yet, update the formData with wallet info
+            setFormData((prev) => ({
+                ...prev,
+                nickname: `User_${walletAddress.substring(0, 6)}`,
+                email: `${walletAddress}@wallet.user`,
+                wallet_address: walletAddress,
             }));
         }
-    }, [profile, error, session]);
+    }, [profile, error, user, walletAddress]);
 
     const handleSubmit = async (e: React.FormEvent) => {
-        setIsUpdating(true); // 开始更新
+        setIsUpdating(true); // Start updating
         e.preventDefault();
 
+        if (!walletAddress) {
+            setSettingResult('failed');
+            setNicknameError('Wallet not connected');
+            setIsUpdating(false);
+            return;
+        }
+
         try {
-            // 检查昵称是否已存在
+            // Check if nickname already exists
             console.log('formData:', formData.nickname);
             const usersWithNickname = await getUserByNickname(formData.nickname);
             console.log('usersWithNickname:', usersWithNickname);
 
-            // 如果昵称已存在且不是当前用户
+            // If nickname exists and isn't current user
             if (usersWithNickname.length > 0 && (!profile || usersWithNickname[0].id !== profile.id)) {
                 setNicknameError('Nickname already exists');
                 setIsUpdating(false);
                 setSettingResult('failed');
-                return; // 直接退出，阻止后续代码执行
+                return; // Exit, prevent further execution
             }
 
+            // Ensure wallet address is included in the form data
+            const updatedFormData = {
+                ...formData,
+                wallet_address: walletAddress
+            };
 
             if (profile) {
-                // 更新用户信息
-                if (formData.email) {
-                    await modifyUserProfile(formData.email, formData);
-                    setNicknameError('');
-                    console.log('User profile modify successfully');
-                    setSettingResult('success');
-                    // 更新成功后重新获取用户数据
-                    await refetch();
-                } else {
-                    setSettingResult('failed');
-                    throw new Error('Email is required to modify user profile');
-                }
+                // Update user information
+                await modifyUserProfile(walletAddress, updatedFormData);
+                setNicknameError('');
+                console.log('User profile modified successfully');
+                setSettingResult('success');
+                // Refresh user data after successful update
+                await refetch();
             } else {
-                // 创建用户信息
-                await createUserProfile(formData);
+                // Create user information
+                await createUserProfile(updatedFormData);
                 setNicknameError('');
                 console.log('User profile created successfully');
                 setSettingResult('success');
-                // 更新成功后重新获取用户数据
+                // Refresh user data after successful creation
                 await refetch();
             }
         } catch (error) {
             console.error('Failed to save user profile:', error);
             setSettingResult('failed');
         } finally {
-            setIsUpdating(false); // 更新完成
+            setIsUpdating(false); // Update complete
         }
     };
-    //处理提交逻辑
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    if (isLoading || !session) {
+    if (isLoading) {
         return (
             <div className="flex justify-center items-center h-screen">
-                <p className="text-2xl font-bold">Loading...</p>
+                <p className="text-2xl font-bold">Loading profile...</p>
+            </div>
+        );
+    }
+
+    if (!isAuthenticated || !walletAddress) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="text-center">
+                    <p className="text-2xl font-bold mb-4">Wallet not connected</p>
+                    <Button onClick={() => router.push('/auth/connect-wallet')}>
+                        Connect Wallet
+                    </Button>
+                </div>
             </div>
         );
     }
@@ -121,24 +151,25 @@ export function SettingForm() {
                 <CardTitle>Profile Settings</CardTitle>
             </CardHeader>
 
-            {/* 显示头像和邮箱 */}
+            {/* Display avatar and wallet */}
             <div className="flex flex-col justify-center items-center py-4 space-y-2">
                 <img
-                    src={formData.avatar_url}
+                    src={formData.avatar_url || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"}
                     alt="avatar"
                     className="w-32 h-32 rounded-full object-cover"
                 />
                 <label className="text-sm font-medium">
-                    {formData.email}
+                    Wallet: {walletAddress?.substring(0, 6)}...{walletAddress?.substring(walletAddress.length - 4)}
                 </label>
 
-                {/*cath id:创建了之后才有 */}
-                <label className="text-sm font-medium">
-                    cathid: {profile?.cath_id || ""}
-                </label>
+                {/* cath id: created after profile exists */}
+                {profile?.cath_id && (
+                    <label className="text-sm font-medium">
+                        cathid: {profile.cath_id}
+                    </label>
+                )}
 
-
-                {/*当settingResult不是空时，显示成功或失败的提示*/}
+                {/* When settingResult is not empty, show success or failure message */}
                 {settingResult !== '' &&
                     <div
                         className={`text-sm font-medium ${settingResult === 'success' ? 'text-green-600' : 'text-red-600'}`}

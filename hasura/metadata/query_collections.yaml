@@ -1,0 +1,55 @@
+- name: allowed-queries
+  definition:
+    queries:
+      - name: getUserProfile
+        query: |
+          query getUserProfile($address: String!) {
+            users(where: {wallet_address: {_eq: $address}}) {
+              id
+              nickname
+              avatar_url
+              cath_id
+              ip_location
+              description
+              email
+              wallet_address
+              wallet_type
+              created_at
+              updated_at
+            }
+          }
+      - name: createUserProfile
+        query: |
+          mutation createUserProfile($nickname: String!, $avatar_url: String, $ip_location: String, $description: String, $wallet_address: String!, $wallet_type: String) {
+            insert_users_one(object: {
+              nickname: $nickname,
+              avatar_url: $avatar_url,
+              ip_location: $ip_location,
+              description: $description,
+              wallet_address: $wallet_address,
+              wallet_type: $wallet_type
+            }) {
+              id
+              nickname
+              wallet_address
+              created_at
+            }
+          }
+      - name: modifyUserProfile
+        query: |
+          mutation modifyUserProfile($wallet_address: String!, $nickname: String, $avatar_url: String, $description: String) {
+            update_users(
+              where: {wallet_address: {_eq: $wallet_address}},
+              _set: {
+                nickname: $nickname,
+                avatar_url: $avatar_url,
+                description: $description
+              }
+            ) {
+              returning {
+                id
+                nickname
+                updated_at
+              }
+            }
+          } 

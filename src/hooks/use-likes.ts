@@ -1,211 +1,198 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/utils/auth';
 import { useUserProfile } from '@/hooks/use-user';
-import { graphqlClient } from '@/lib/graphql-client';
-import { 
-  LIKE_TREASURE, 
-  UNLIKE_TREASURE, 
-  GET_USER_LIKES,
-  GET_TREASURE_LIKES_COUNT
-} from '@/graphql/likes';
-
-import type {
-  LikeResponse,
-  TreasureLikesCount,
-  UnlikeResponse,
-  UserLikesResponse
-} from '@/types/like'
+import { useWallet } from '@/context/WalletContext';
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface LikeEvent {
   type: 'LIKE' | 'UNLIKE';
-  treasureId: string;
+  itemId: string;
   userId: string;
+  itemType: 'treasure' | 'station';
 }
 
-export function useLikes(treasureId?: string) {
+interface UserLike {
+  id: string;
+  user_id: string;
+  [key: string]: any; // For dynamic field names like 'station_id' or 'treasure_id'
+}
+
+export function useLikes(itemId?: string, itemType: 'treasure' | 'station' = 'station') {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
-  const { profile } = useUserProfile({ enabled: !!session?.user?.email });
+  const { isAuthenticated, user } = useAuth();
+  const { walletAddress } = useWallet();
+  const { profile } = useUserProfile({ enabled: !!walletAddress });
   const [optimisticLikesCount, setOptimisticLikesCount] = useState<Record<string, number>>({});
 
-  // 获取宝藏的初始点赞数
-  const { data: initialLikesCount } = useQuery<TreasureLikesCount, Error, number>({
-    queryKey: ['treasureLikesCount', treasureId],
+  // Get the initial likes count for a station/treasure
+  const { data: initialLikesCount } = useQuery({
+    queryKey: [`${itemType}LikesCount`, itemId],
     queryFn: async () => {
-      if (!treasureId) throw new Error('No treasure ID provided');
-      const response = await graphqlClient.request<TreasureLikesCount>(GET_TREASURE_LIKES_COUNT, {
-        treasure_id: treasureId
-      });
-      return response;
+      if (!itemId) return 0;
+
+      const likesRef = collection(db, 'likes');
+      const q = query(likesRef, where(`${itemType}_id`, '==', itemId));
+      const snapshot = await getDocs(q);
+      return snapshot.size;
     },
-    select: (data) => data.treasures_by_pk?.likes_count ?? 0,
-    enabled: !!treasureId,
+    enabled: !!itemId,
   });
 
-  // 获取用户点赞列表
-  const { data: userLikes } = useQuery<UserLikesResponse>({
-    queryKey: ['userLikes', profile?.id],
+  // Get user likes list
+  const { data: userLikes, isLoading: userLikesLoading } = useQuery({
+    queryKey: ['userLikes', profile?.id, itemType],
     queryFn: async () => {
-      if (!profile?.id) throw new Error('No user ID found');
-      const response = await graphqlClient.request<UserLikesResponse>(GET_USER_LIKES, {
-        user_id: profile.id
+      if (!profile?.id) return { likes: [] as UserLike[] };
+
+      const likesRef = collection(db, 'likes');
+      const q = query(
+        likesRef,
+        where('user_id', '==', profile.id),
+        where(`${itemType}_id`, '!=', null)
+      );
+      const snapshot = await getDocs(q);
+
+      const likes: UserLike[] = [];
+      snapshot.forEach((doc) => {
+        likes.push({ id: doc.id, ...doc.data() } as UserLike);
       });
-      return response;
+
+      return { likes };
     },
     enabled: !!profile?.id,
   });
 
-  // 点赞操作
-  const likeTreasure = useMutation<LikeResponse, Error, string>({
-    mutationFn: async (treasureId: string) => {
-      if (!profile?.id) throw new Error('No user ID found');
-      const response = await graphqlClient.request<LikeResponse>(LIKE_TREASURE, {
-        treasure_id: treasureId,
-        user_id: profile.id,
-      });
-      
-      // 广播点赞事件
-      broadcastLikeEvent({
-        type: 'LIKE',
-        treasureId,
-        userId: profile.id
-      });
-      
-      return response;
-    },
-    onMutate: async (treasureId) => {
-      // 取消相关查询
-      await queryClient.cancelQueries({ queryKey: ['userLikes', profile?.id] });
-      await queryClient.cancelQueries({ queryKey: ['treasureLikesCount', treasureId] });
+  // Check if the current user has liked a specific item
+  const isLiked = (id: string): boolean => {
+    if (!userLikes?.likes || !profile?.id) return false;
+    return userLikes.likes.some(like => like[`${itemType}_id`] === id);
+  };
 
-      // 保存之前的状态
-      const previousState = {
-        userLikes: queryClient.getQueryData<UserLikesResponse>(['userLikes', profile?.id]),
-        likesCount: optimisticLikesCount[treasureId] || initialLikesCount || 0
-      };
+  // Find the like document for an item
+  const findLikeDocument = async (userId: string, itemId: string) => {
+    const likesRef = collection(db, 'likes');
+    const q = query(
+      likesRef,
+      where('user_id', '==', userId),
+      where(`${itemType}_id`, '==', itemId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  };
 
-      // 乐观更新点赞状态
-      queryClient.setQueryData<UserLikesResponse>(['userLikes', profile?.id], (old) => ({
-        treasure_likes: [...(old?.treasure_likes || []), { treasure_id: treasureId }],
-      }));
+  // Like a station/treasure
+  const likeStation = useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!profile?.id) throw new Error('User not authenticated');
 
-      // 乐观更新点赞数
+      // Check if already liked
+      const existingLike = await findLikeDocument(profile.id, itemId);
+      if (existingLike) return existingLike;
+
+      // Optimistic update
       setOptimisticLikesCount(prev => ({
         ...prev,
-        [treasureId]: (prev[treasureId] || initialLikesCount || 0) + 1
+        [itemId]: (prev[itemId] || 0) + 1
       }));
 
-      return previousState;
+      // Create new like
+      const likeData = {
+        user_id: profile.id,
+        [`${itemType}_id`]: itemId,
+        created_at: new Date().toISOString()
+      };
+
+      const docRef = await addDoc(collection(db, 'likes'), likeData);
+      return { id: docRef.id, ...likeData };
     },
-    onError: (err, treasureId, context: any) => {
-      // 发生错误时回滚状态
-      if (context) {
-        queryClient.setQueryData(['userLikes', profile?.id], context.userLikes);
-        setOptimisticLikesCount(prev => ({
-          ...prev,
-          [treasureId]: context.likesCount
-        }));
-      }
+    onSuccess: (_, itemId) => {
+      queryClient.invalidateQueries({ queryKey: ['userLikes', profile?.id, itemType] });
+      queryClient.invalidateQueries({ queryKey: [`${itemType}LikesCount`, itemId] });
+    },
+    onError: (_, itemId) => {
+      // Rollback optimistic update on error
+      setOptimisticLikesCount(prev => ({
+        ...prev,
+        [itemId]: (prev[itemId] || 1) - 1
+      }));
     }
   });
 
-  // 取消点赞操作
-  const unlikeTreasure = useMutation<UnlikeResponse, Error, string>({
-    mutationFn: async (treasureId: string) => {
-      if (!profile?.id) throw new Error('No user ID found');
-      const response = await graphqlClient.request<UnlikeResponse>(UNLIKE_TREASURE, {
-        treasure_id: treasureId,
-        user_id: profile.id,
-      });
+  // Unlike a station/treasure
+  const unlikeStation = useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!profile?.id) throw new Error('User not authenticated');
 
-      // 广播取消点赞事件
-      broadcastLikeEvent({
-        type: 'UNLIKE',
-        treasureId,
-        userId: profile.id
-      });
+      // Find the like document
+      const existingLike = await findLikeDocument(profile.id, itemId);
+      if (!existingLike) throw new Error('Like not found');
 
-      return response;
-    },
-    onMutate: async (treasureId) => {
-      // 取消相关查询
-      await queryClient.cancelQueries({ queryKey: ['userLikes', profile?.id] });
-      await queryClient.cancelQueries({ queryKey: ['treasureLikesCount', treasureId] });
-
-      // 保存之前的状态
-      const previousState = {
-        userLikes: queryClient.getQueryData<UserLikesResponse>(['userLikes', profile?.id]),
-        likesCount: optimisticLikesCount[treasureId] || initialLikesCount || 0
-      };
-
-      // 乐观更新点赞状态
-      queryClient.setQueryData<UserLikesResponse>(['userLikes', profile?.id], (old) => ({
-        treasure_likes: (old?.treasure_likes || []).filter(
-          like => like.treasure_id !== treasureId
-        ),
-      }));
-
-      // 乐观更新点赞数
+      // Optimistic update
       setOptimisticLikesCount(prev => ({
         ...prev,
-        [treasureId]: Math.max(0, (prev[treasureId] || initialLikesCount || 0) - 1)
+        [itemId]: Math.max((prev[itemId] || 1) - 1, 0)
       }));
 
-      return previousState;
+      // Delete the like
+      await deleteDoc(doc(db, 'likes', existingLike.id));
+      return existingLike;
     },
-    onError: (err, treasureId, context: any) => {
-      // 发生错误时回滚状态
-      if (context) {
-        queryClient.setQueryData(['userLikes', profile?.id], context.userLikes);
-        setOptimisticLikesCount(prev => ({
-          ...prev,
-          [treasureId]: context.likesCount
-        }));
-      }
+    onSuccess: (_, itemId) => {
+      queryClient.invalidateQueries({ queryKey: ['userLikes', profile?.id, itemType] });
+      queryClient.invalidateQueries({ queryKey: [`${itemType}LikesCount`, itemId] });
+    },
+    onError: (_, itemId) => {
+      // Rollback optimistic update on error
+      setOptimisticLikesCount(prev => ({
+        ...prev,
+        [itemId]: (prev[itemId] || 0) + 1
+      }));
     }
   });
 
-  // 监听点赞事件的 BroadcastChannel
+  // Toggle like function (like/unlike)
+  const toggleLike = (itemId: string) => {
+    if (!isAuthenticated || !profile?.id) {
+      // Handle not authenticated case
+      return;
+    }
+
+    if (isLiked(itemId)) {
+      unlikeStation.mutate(itemId);
+    } else {
+      likeStation.mutate(itemId);
+    }
+  };
+
+  // Get the actual likes count, including optimistic updates
+  const getLikesCount = (itemId: string): number => {
+    if (optimisticLikesCount[itemId] !== undefined) {
+      return optimisticLikesCount[itemId];
+    }
+    return initialLikesCount || 0;
+  };
+
   useEffect(() => {
-    const channel = new BroadcastChannel('likes-channel');
-    
-    channel.addEventListener('message', (event) => {
-      const { type, treasureId, userId } = event.data as LikeEvent;
-      
-      // 忽略自己发出的事件
-      if (userId === profile?.id) return;
-
-      // 更新本地点赞数
+    // Initialize optimistic counts with actual data when it becomes available
+    if (itemId && initialLikesCount !== undefined) {
       setOptimisticLikesCount(prev => ({
         ...prev,
-        [treasureId]: Math.max(0, (prev[treasureId] || initialLikesCount || 0) + (type === 'LIKE' ? 1 : -1))
+        [itemId]: initialLikesCount
       }));
-    });
-
-    return () => channel.close();
-  }, [profile?.id, initialLikesCount]);
-
-  // 广播点赞事件函数
-  const broadcastLikeEvent = (event: LikeEvent) => {
-    const channel = new BroadcastChannel('likes-channel');
-    channel.postMessage(event);
-    channel.close();
-  };
-
-  const isLiked = (id: string) => {
-    return userLikes?.treasure_likes.some(like => like.treasure_id === id) ?? false;
-  };
-
-  const getLikesCount = (id: string) => {
-    return optimisticLikesCount[id] ?? initialLikesCount ?? 0;
-  };
+    }
+  }, [itemId, initialLikesCount]);
 
   return {
     isLiked,
-    likeTreasure,
-    unlikeTreasure,
-    userLikes,
-    getLikesCount
+    toggleLike,
+    // Return both individual like/unlike functions and likesCount for compatibility
+    likeStation,
+    unlikeStation,
+    getLikesCount,
+    likesCount: itemId ? getLikesCount(itemId) : 0,
+    userLikes: userLikes?.likes || [],
+    isLoading: likeStation.isPending || unlikeStation.isPending || userLikesLoading,
   };
 }

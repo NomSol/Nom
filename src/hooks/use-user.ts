@@ -1,56 +1,47 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import { UserProfile } from '@/types/user';
 import { UserProfileInput } from '@/types/user';
 import { GET_USER_BY_NICKNAME } from '@/graphql/user';
 import { graphqlClient } from '@/lib/graphql-client';
+import { useWallet } from '@/context/WalletContext';
+import { firebaseApiClient } from '@/lib/firebase-api-client';
 
 export function useUserProfile(p0?: { enabled?: boolean; }) {
-    const { data: session } = useSession();
-    const email = session?.user?.email;
+  const { walletAddress } = useWallet();
 
-    const {
-        data: profile,
-        isLoading,
-        error,
-        refetch // 解构 refetch 方法
-    } = useQuery({
-        queryKey: ['userProfile', email],
-        queryFn: async () => {
-            if (!email) throw new Error('No email found in session');
+  const {
+    data: profile,
+    isLoading,
+    error,
+    refetch // Extract refetch method
+  } = useQuery({
+    queryKey: ['walletUser', walletAddress],
+    queryFn: async () => {
+      if (!walletAddress) throw new Error('No wallet connected');
 
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_HASURA_REST_API}/userprofile?email=${encodeURIComponent(email)}`,
-                {
-                    headers: {
-                        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
-                    },
-                }
-            );
+      try {
+        const data = await firebaseApiClient.getWalletUser(walletAddress);
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch profile');
-            }
+        // Check if user data exists, if not throw error
+        if (!data.users || data.users.length === 0) {
+          throw new Error('No user profile found');
+        }
 
+        return data.users[0] as UserProfile;
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        throw new Error('Failed to fetch profile');
+      }
+    },
+    enabled: !!walletAddress && (p0?.enabled !== false), // Only execute query when wallet is connected
+  });
 
-            const data = await response.json();
-
-            // 检查用户数据是否存在，如果不存在抛出错误
-            if (!data.users[0] || data.users.length === 0) {
-                throw new Error('No user profile found');
-            }
-            return data.users[0] as UserProfile; // 返回用户数据
-
-        },
-        enabled: !!email, // 只在有 email 时执行查询
-    });
-
-    return {
-        profile,
-        isLoading,
-        error,
-        refetch // 暴露 refetch 方法
-    };
+  return {
+    profile,
+    isLoading,
+    error,
+    refetch // Expose refetch method
+  };
 }
 
 export async function createUserProfile(userProfile: UserProfileInput) {
@@ -74,7 +65,7 @@ export async function createUserProfile(userProfile: UserProfileInput) {
 }
 
 export async function modifyUserProfile(
-  email: string,
+  wallet_address: string,
   updates: Partial<UserProfileInput>
 ) {
   const response = await fetch(
@@ -87,7 +78,7 @@ export async function modifyUserProfile(
           process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || "",
       },
       body: JSON.stringify({
-        email, // 用于标识用户
+        wallet_address, // 用于标识用户
         ...updates, // 将更新的字段直接展开
       }),
     }
@@ -102,22 +93,22 @@ export async function modifyUserProfile(
 }
 
 export async function getUserByNickname(
-    nickname: string
+  nickname: string
 ): Promise<any[]> {
-    try {
-        console.log('nickname in function:', nickname);
-        const response = await graphqlClient.request<any>(GET_USER_BY_NICKNAME, { nickname });
-        console.log('GraphQL query response:', response);
+  try {
+    console.log('nickname in function:', nickname);
+    const response = await graphqlClient.request<any>(GET_USER_BY_NICKNAME, { nickname });
+    console.log('GraphQL query response:', response);
 
-        // 直接返回匹配到的用户数组
-        if (!response || !response.users) {
-            console.error('响应数据中没有 users 属性', response);
-            throw new Error('查询返回数据格式不正确');
-        }
-
-        return response.users;
-    } catch (error) {
-        console.error('检查昵称时出错:', error);
-        throw new Error('查询昵称失败');
+    // 直接返回匹配到的用户数组
+    if (!response || !response.users) {
+      console.error('响应数据中没有 users 属性', response);
+      throw new Error('查询返回数据格式不正确');
     }
+
+    return response.users;
+  } catch (error) {
+    console.error('检查昵称时出错:', error);
+    throw new Error('查询昵称失败');
+  }
 };

@@ -3,8 +3,8 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { SessionProvider } from "next-auth/react";
 import ProtectPage from "./protect";
+import { WalletProvider } from "@/context/WalletContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -19,11 +19,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <WalletProvider>
         <ProtectPage>{children}</ProtectPage>
-      </QueryClientProvider>
-    </SessionProvider>
+      </WalletProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -4,18 +4,18 @@ import { Notes } from "./notes";
 import TreasuresPage from '../../app/main/treasures/page';
 
 export const TabComponent = () => {
-    // 当前激活的标签索引
+    // Current active tab index
     const [activeTab, setActiveTab] = useState("notes");
 
-    // 标签内容映射
+    // Tab content mapping
     const renderContent = () => {
         switch (activeTab) {
             case "notes":
                 return < TreasuresPage />;
             case "collections":
-                return <div>这是收藏的内容</div>;
+                return <div>Collection</div>;
             case "likes":
-                return <div>这是点赞的内容</div>;
+                return <div>Likes</div>;
             default:
                 return null;
         }
@@ -23,12 +23,12 @@ export const TabComponent = () => {
 
     return (
         <div className="w-full flex flex-col items-center">
-            {/* 标签导航 */}
+            {/* Tab navigation */}
             <div
                 className="flex justify-center items-center border-b"
                 style={{ width: "100%", padding: "8px 0" }}
             >
-                {/* 笔记 Tab */}
+                {/* Notes Tab */}
                 <div
                     className={`sub-tab-list cursor-pointer ${activeTab === "notes" ? "text-blue-600 font-bold" : "text-gray-600"
                         }`}
@@ -39,10 +39,10 @@ export const TabComponent = () => {
                     }}
                     onClick={() => setActiveTab("notes")}
                 >
-                    笔记
+                    Post
                 </div>
 
-                {/* 收藏 Tab */}
+                {/* Collections Tab */}
                 <div
                     className={`sub-tab-list cursor-pointer ${activeTab === "collections"
                         ? "text-blue-600 font-bold"
@@ -56,11 +56,11 @@ export const TabComponent = () => {
                     onClick={() => setActiveTab("collections")}
                 >
                     <div className="flex items-center">
-                        收藏
+                        Collection
                     </div>
                 </div>
 
-                {/* 点赞 Tab */}
+                {/* Likes Tab */}
                 <div
                     className={`sub-tab-list cursor-pointer ${activeTab === "likes" ? "text-blue-600 font-bold" : "text-gray-600"
                         }`}
@@ -70,11 +70,11 @@ export const TabComponent = () => {
                     }}
                     onClick={() => setActiveTab("likes")}
                 >
-                    点赞
+                    Likes
                 </div>
             </div>
 
-            {/* 激活标签的底部高亮线 */}
+            {/* Bottom highlight line for active tab */}
             <div
                 className="active-tag bg-blue-600"
                 style={{
@@ -91,7 +91,7 @@ export const TabComponent = () => {
                 }}
             ></div>
 
-            {/* 标签内容 */}
+            {/* Tab content */}
             <div className="tab-content mt-4 text-center">{renderContent()}</div>
         </div>
     );

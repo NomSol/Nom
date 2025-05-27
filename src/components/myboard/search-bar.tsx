@@ -4,7 +4,7 @@ import React from "react";
 
 export function SearchBar() {
     const handleSearch = () => {
-        console.log("搜索按钮点击");
+        console.log("Clicking search");
         // 在这里添加搜索逻辑
     };
 
@@ -12,7 +12,7 @@ export function SearchBar() {
         <div className="relative w-full">
             <input
                 type="search"
-                placeholder="搜索笔记..."
+                placeholder="Search..."
                 className="w-full px-4 py-2 rounded-full border border-gray-300 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
             />
             <button

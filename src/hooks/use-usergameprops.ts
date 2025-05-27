@@ -5,7 +5,7 @@ import {
   UPDATE_USER_GAME_PROPS,
   INCREMENT_USER_GAME_PROPS,
 } from "@/graphql/usergameprops";
-import { useUserProfile } from "./use-user";
+import { useWalletUser } from "./use-wallet-user";
 
 interface UserGameProps {
   energy: number;
@@ -20,7 +20,7 @@ interface UserGamePropsResponse {
 
 export function useUserGameProps() {
   const queryClient = useQueryClient();
-  const { profile } = useUserProfile({ enabled: true });
+  const { profile } = useWalletUser();
   const userId = profile?.id;
 
   // Get user game properties

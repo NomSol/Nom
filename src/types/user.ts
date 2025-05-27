@@ -3,12 +3,14 @@ export interface UserProfile {
   id: string;
   nickname: string;
   avatar_url: string;
-  cath_id: number;
+  cath_id?: number;
   ip_location?: string;
   description?: string;
   email?: string;
+  wallet_address?: string;
+  wallet_type?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 // src/types/user.ts
@@ -17,5 +19,8 @@ export interface UserProfileInput {
   avatar_url: string;
   ip_location?: string;
   description?: string;
-  email: string;
+  email?: string;
+  wallet_address?: string;
+  wallet_type?: string;
+  created_at?: string;
 }

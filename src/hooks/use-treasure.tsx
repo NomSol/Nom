@@ -1,18 +1,8 @@
 // hooks/use-treasure.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { graphqlClient } from "@/lib/graphql-client";
-import {
-  GET_TREASURES,
-  GET_TREASURE_BY_ID,
-  CREATE_TREASURE,
-  UPDATE_TREASURE,
-  DELETE_TREASURE,
-  GET_USER_PLACEMENTS,
-  VERIFY_TREASURE,
-  GET_USER_FINDINGS,
-} from "@/graphql/treasures";
 import { Treasure, VerifyTreasureInput } from "@/types/treasure";
 import { useUserProfile } from "./use-user";
+import { firebaseApiClient } from "@/lib/firebase-api-client";
 
 interface GetTreasuresResponse {
   treasures: Treasure[];
@@ -45,10 +35,7 @@ export function useTreasure(id: string) {
   const { data, isLoading } = useQuery({
     queryKey: ["treasure", id],
     queryFn: async () => {
-      const response = await graphqlClient.request<GetTreasureResponse>(
-        GET_TREASURE_BY_ID,
-        { id }
-      );
+      const response = await firebaseApiClient.getTreasureById(id);
       return response.treasures_by_pk;
     },
     enabled: !!id,
@@ -64,35 +51,31 @@ export function useTreasures() {
   const queryClient = useQueryClient();
   const { profile } = useUserProfile({ enabled: true });
 
-  // 获取所有宝藏
+  // Get all treasures
   const { data, isLoading, error } = useQuery<GetTreasuresResponse>({
     queryKey: ["treasures"],
     queryFn: async () => {
-      const response = await graphqlClient.request<GetTreasuresResponse>(
-        GET_TREASURES
-      );
-      return response;
+      return firebaseApiClient.getAllTreasures();
     },
   });
 
-  // 生成6位随机数验证码
+  // Generate a 6-digit random verification code
   const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  // 创建宝藏
+  // Create treasure
   const createTreasure = useMutation({
     mutationFn: async (input: CreateTreasureInput) => {
       const verification_code = generateVerificationCode();
-      const variables = {
-        object: {
-          ...input,
-          verification_code,
-          creator_id: profile?.id,
-          status: 'ACTIVE',
-        }
+      const treasureData = {
+        ...input,
+        verification_code,
+        creator_id: profile?.id,
+        status: 'ACTIVE',
       };
-      return graphqlClient.request(CREATE_TREASURE, variables);
+
+      return firebaseApiClient.createTreasure(treasureData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
@@ -100,7 +83,7 @@ export function useTreasures() {
     },
   });
 
-  // 更新宝藏
+  // Update treasure
   const updateTreasure = useMutation({
     mutationFn: ({
       id,
@@ -108,31 +91,27 @@ export function useTreasures() {
     }: {
       id: string;
       data: Partial<CreateTreasureInput>;
-    }) => graphqlClient.request(UPDATE_TREASURE, { id, set: data }),
+    }) => firebaseApiClient.updateTreasure(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
       queryClient.invalidateQueries({ queryKey: ["treasure"] });
     },
   });
 
-  // 删除宝藏
+  // Delete treasure
   const deleteTreasure = useMutation({
-    mutationFn: (id: string) => graphqlClient.request(DELETE_TREASURE, { id }),
+    mutationFn: (id: string) => firebaseApiClient.deleteTreasure(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
     },
   });
 
-  // 验证宝藏
+  // Verify treasure
   const verifyTreasure = useMutation({
     mutationFn: async ({ id, verification_code }: VerifyTreasureInput) => {
       if (!profile?.id) throw new Error('User not logged in');
-      
-      return graphqlClient.request(VERIFY_TREASURE, {
-        id,
-        verification_code,
-        finder_id: profile.id,
-      });
+
+      return firebaseApiClient.verifyTreasure(id, verification_code, profile.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasures"] });
@@ -140,22 +119,22 @@ export function useTreasures() {
     },
   });
 
-  // 获取用户放置的宝藏
+  // Get user placements
   const userPlacements = useQuery<UserPlacementsResponse>({
     queryKey: ["userPlacements", profile?.id],
     queryFn: async () => {
       if (!profile?.id) throw new Error('User not logged in');
-      return graphqlClient.request(GET_USER_PLACEMENTS, { creator_id: profile.id });
+      return firebaseApiClient.getUserPlacements(profile.id);
     },
     enabled: !!profile?.id,
   });
 
-  // 获取用户找到的宝藏
+  // Get user findings
   const userFindings = useQuery<UserFindingsResponse>({
     queryKey: ["userFindings", profile?.id],
     queryFn: async () => {
       if (!profile?.id) throw new Error('User not logged in');
-      return graphqlClient.request(GET_USER_FINDINGS, { finder_id: profile.id });
+      return firebaseApiClient.getUserFindings(profile.id);
     },
     enabled: !!profile?.id,
   });

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Treasure } from "@/types/treasure";
 import Image from "next/image";
 
@@ -13,54 +13,64 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
   onClose,
   onNavigate,
 }) => {
+  // Pawprint icon for visual indication
   const PawIcon = () => (
-    <div className="absolute right-8 top-1/2 transform -translate-y-1/2">
-      <svg
-        width="48"
-        height="48"
-        viewBox="0 0 48 48"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="24" cy="24" r="24" fill="#FF6B6B" opacity="0.1" />
-        <path
-          d="M32 21.5C32 22.88 30.88 24 29.5 24C28.12 24 27 22.88 27 21.5C27 20.12 28.12 19 29.5 19C30.88 19 32 20.12 32 21.5Z"
-          fill="#FF6B6B"
-        />
-        <path
-          d="M25 19.5C25 20.88 23.88 22 22.5 22C21.12 22 20 20.88 20 19.5C20 18.12 21.12 17 22.5 17C23.88 17 25 18.12 25 19.5Z"
-          fill="#FF6B6B"
-        />
-        <path
-          d="M18 21.5C18 22.88 16.88 24 15.5 24C14.12 24 13 22.88 13 21.5C13 20.12 14.12 19 15.5 19C16.88 19 18 20.12 18 21.5Z"
-          fill="#FF6B6B"
-        />
-        <path
-          d="M29 29.7C29 32.72 26.52 35 23.5 35C20.48 35 18 32.72 18 29.7C18 26.68 20.48 24 23.5 24C26.52 24 29 26.68 29 29.7Z"
-          fill="#FF6B6B"
-        />
-      </svg>
-    </div>
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="text-amber-500"
+    >
+      <path
+        d="M10.5 11.5C10.5 12.3284 9.82843 13 9 13C8.17157 13 7.5 12.3284 7.5 11.5C7.5 10.6716 8.17157 10 9 10C9.82843 10 10.5 10.6716 10.5 11.5Z"
+        fill="currentColor"
+      />
+      <path
+        d="M15 13C15.8284 13 16.5 12.3284 16.5 11.5C16.5 10.6716 15.8284 10 15 10C14.1716 10 13.5 10.6716 13.5 11.5C13.5 12.3284 14.1716 13 15 13Z"
+        fill="currentColor"
+      />
+      <path
+        d="M10.5 17.5C10.5 18.3284 9.82843 19 9 19C8.17157 19 7.5 18.3284 7.5 17.5C7.5 16.6716 8.17157 16 9 16C9.82843 16 10.5 16.6716 10.5 17.5Z"
+        fill="currentColor"
+      />
+      <path
+        d="M15 19C15.8284 19 16.5 18.3284 16.5 17.5C16.5 16.6716 15.8284 16 15 16C14.1716 16 13.5 16.6716 13.5 17.5C13.5 18.3284 14.1716 19 15 19Z"
+        fill="currentColor"
+      />
+      <path
+        d="M18.5 13C17.1193 13 16 11.8807 16 10.5C16 9.11929 17.1193 8 18.5 8C19.8807 8 21 9.11929 21 10.5C21 11.8807 19.8807 13 18.5 13Z"
+        fill="currentColor"
+      />
+      <path
+        d="M18.5 21C17.1193 21 16 19.8807 16 18.5C16 17.1193 17.1193 16 18.5 16C19.8807 16 21 17.1193 21 18.5C21 19.8807 19.8807 21 18.5 21Z"
+        fill="currentColor"
+      />
+      <path
+        d="M5.5 13C4.11929 13 3 11.8807 3 10.5C3 9.11929 4.11929 8 5.5 8C6.88071 8 8 9.11929 8 10.5C8 11.8807 6.88071 13 5.5 13Z"
+        fill="currentColor"
+      />
+      <path
+        d="M5.5 21C4.11929 21 3 19.8807 3 18.5C3 17.1193 4.11929 16 5.5 16C6.88071 16 8 17.1193 8 18.5C8 19.8807 6.88071 21 5.5 21Z"
+        fill="currentColor"
+      />
+    </svg>
   );
 
-  // 计算随机难度
-  const difficultyLevel = ["Easy", "Medium", "Hard"];
-  const randomDifficulty = difficultyLevel[Math.floor(Math.random() * 3)];
+  // Generate random difficulty, collect count, and rating for visual enhancement
+  const randomDifficulty = useMemo(() => {
+    const difficulties = ["Easy", "Medium", "Hard", "Expert"];
+    return difficulties[Math.floor(Math.random() * difficulties.length)];
+  }, []);
 
-  // 随机收集次数和评分
-  const collectCount = Math.floor(Math.random() * 200) + 50;
-  const rating = (Math.floor(Math.random() * 30) + 70) / 10; // 7.0 到 10.0
+  const collectCount = useMemo(() => Math.floor(Math.random() * 1000), []);
+  const rating = useMemo(() => 7 + Math.random() * 3, []); // Random rating between 7-10
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
-      <div
-        className="relative bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl"
-        style={{
-          background:
-            "linear-gradient(to bottom, white, white 70%, rgba(255, 240, 195, 0.2))",
-        }}
-      >
-        {/* 关闭按钮 - 更现代的设计 */}
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl animate-fade-in-up relative max-h-[90vh] overflow-y-auto">
+        {/* Close button - Modern design */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
@@ -89,7 +99,7 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
           </svg>
         </button>
 
-        {/* 宝藏图片 */}
+        {/* Treasure image */}
         <div className="w-full h-60 relative bg-gray-100">
           {treasure.image_url ? (
             <div className="w-full h-full relative">
@@ -100,7 +110,7 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 400px"
               />
-              {/* 添加金色光晕效果 */}
+              {/* Add golden glow effect */}
               <div
                 className="absolute inset-0"
                 style={{
@@ -152,7 +162,7 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
             </div>
           )}
 
-          {/* 能量消耗指示器 - 直接放在图片上 */}
+          {/* Energy consumption indicator - directly on the image */}
           <div className="absolute left-4 bottom-4 bg-white bg-opacity-90 px-3 py-1 rounded-full shadow-md flex items-center">
             <svg
               width="20"
@@ -184,7 +194,7 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
               "linear-gradient(to bottom, white, rgba(255, 248, 230, 0.2))",
           }}
         >
-          {/* 宝藏标题和描述 */}
+          {/* Treasure title and description */}
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
               {treasure.name || "Treasure Title"}
@@ -195,7 +205,7 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
             </p>
           </div>
 
-          {/* 宝藏信息卡片 */}
+          {/* Treasure info card */}
           <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
@@ -213,9 +223,9 @@ export const TreasureDetail: React.FC<TreasureDetailProps> = ({
             </div>
           </div>
 
-          {/* 提示信息已被移除 */}
+          {/* Hint information has been removed */}
 
-          {/* 导航按钮 */}
+          {/* Navigation button */}
           <button
             onClick={onNavigate}
             className="w-full bg-green-500 text-white py-4 rounded-xl text-2xl font-bold hover:bg-green-600 transition-colors flex items-center justify-center"
