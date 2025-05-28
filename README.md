@@ -199,6 +199,11 @@ npm install
 npm run seed
 ```
 
+3. Run DApp demo on local:
+```bash
+npm run dev
+```
+
 This command will:
 - Connect to your Firebase Firestore database
 - Clear existing data in the database (with a 5-second confirmation window to cancel)
@@ -214,31 +219,6 @@ The seeding script creates:
 - 10 PVP matches in various states (open, in-progress, completed)
 - 30 user-station interactions
 
-## Connecting to Firebase Firestore
-
-Use the following configuration to connect to Firebase in your application:
-
-```javascript
-// In your Firebase initialization code:
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA9rBubO644uLujowvGgZ88kijyhr6UX1A",
-  authDomain: "nomnom-103d6.firebaseapp.com",
-  projectId: "nomnom-103d6",
-  storageBucket: "nomnom-103d6.firebasestorage.app",
-  messagingSenderId: "981324903048",
-  appId: "1:981324903048:web:8618ca311b5ca78093e53d",
-  measurementId: "G-4BPWCVDEQW"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore
-const db = getFirestore(app);
-```
 
 ## Database Structure
 
