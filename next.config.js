@@ -31,6 +31,16 @@ const nextConfig = {
         hostname: "picsum.photos",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "cryptologos.cc",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "s2.coinmarketcap.com",
+        pathname: "/**",
+      },
     ],
   },
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useContext } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { MapContext } from "@/components/dashboard/MapContext";
@@ -30,6 +30,10 @@ export function FloatingActions() {
     setLongitude(lng.toFixed(6));
   };
 
+  const handleDisposeCoins = () => {
+    router.push("/dispose");
+  };
+
   return (
     <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4">
       {showStationForm ? (
@@ -46,13 +50,22 @@ export function FloatingActions() {
           />
         </div>
       ) : (
-        <Button
-          size="icon"
-          className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-lg"
-          onClick={handleCreateStation}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
+        <>
+          <Button
+            size="icon"
+            className="h-12 w-12 rounded-full bg-red-500 hover:bg-red-600 shadow-lg"
+            onClick={handleDisposeCoins}
+          >
+            <Trash2 className="h-6 w-6" />
+          </Button>
+          <Button
+            size="icon"
+            className="h-12 w-12 rounded-full bg-green-500 hover:bg-green-600 shadow-lg"
+            onClick={handleCreateStation}
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </>
       )}
     </div>
   );

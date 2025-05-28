@@ -1,0 +1,276 @@
+{
+    "version": "0.1.0",
+    "name": "token_recycle",
+    "instructions": [
+        {
+            "name": "initializeStation",
+            "accounts": [
+                {
+                    "name": "station",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "owner",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "stationName",
+                    "type": "string"
+                },
+                {
+                    "name": "stationDescription",
+                    "type": "string"
+                },
+                {
+                    "name": "latitude",
+                    "type": "f64"
+                },
+                {
+                    "name": "longitude",
+                    "type": "f64"
+                }
+            ]
+        },
+        {
+            "name": "disposeDeadCoin",
+            "accounts": [
+                {
+                    "name": "user",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "station",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "deadCoinMint",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "userDeadCoinAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "nomMint",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "userNomAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "programNomAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "programAuthority",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "recycleRecord",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "tokenProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "associatedTokenProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "rent",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                },
+                {
+                    "name": "deathIndex",
+                    "type": "u8"
+                }
+            ]
+        },
+        {
+            "name": "claimXp",
+            "accounts": [
+                {
+                    "name": "user",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": []
+        }
+    ],
+    "accounts": [
+        {
+            "name": "RecyclingStation",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "owner",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "description",
+                        "type": "string"
+                    },
+                    {
+                        "name": "latitude",
+                        "type": "f64"
+                    },
+                    {
+                        "name": "longitude",
+                        "type": "f64"
+                    },
+                    {
+                        "name": "recycledCount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "isActive",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "createdAt",
+                        "type": "i64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "RecycleRecord",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "user",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "station",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "deadCoinMint",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "deathIndex",
+                        "type": "u8"
+                    },
+                    {
+                        "name": "nomTokensReward",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "xpPoints",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "timestamp",
+                        "type": "i64"
+                    }
+                ]
+            }
+        }
+    ],
+    "events": [
+        {
+            "name": "RecycleEvent",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "publicKey",
+                    "index": false
+                },
+                {
+                    "name": "station",
+                    "type": "publicKey",
+                    "index": false
+                },
+                {
+                    "name": "deadCoinMint",
+                    "type": "publicKey",
+                    "index": false
+                },
+                {
+                    "name": "amount",
+                    "type": "u64",
+                    "index": false
+                },
+                {
+                    "name": "nomTokensReward",
+                    "type": "u64",
+                    "index": false
+                },
+                {
+                    "name": "xpPoints",
+                    "type": "u64",
+                    "index": false
+                },
+                {
+                    "name": "timestamp",
+                    "type": "i64",
+                    "index": false
+                }
+            ]
+        }
+    ],
+    "errors": [
+        {
+            "code": 6000,
+            "name": "InvalidAmount",
+            "msg": "Amount must be greater than zero"
+        },
+        {
+            "code": 6001,
+            "name": "InvalidDeathIndex",
+            "msg": "Death index must be between 1 and 100"
+        }
+    ]
+}
